@@ -1,0 +1,12 @@
+{
+  "name": "genesmith-frontend-placeholder",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo \"No build configured\""
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}
