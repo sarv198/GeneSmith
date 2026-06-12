@@ -1,0 +1,140 @@
+GeneSmith Training Data Derivation Summary
+==========================================
+
+This document describes, in execution order, how training data was fetched,
+cleaned, featurized, and used to train the expression prediction model.
+Each step lists the frameworks/tools used.
+
+
+STEP 1 — Anderson Promoter Collection (Source B)
+------------------------------------------------
+Script:   python -m backend.data.fetch_anderson
+Output:   synbio-studio/venv/backend/data/anderson_promoters.csv
+
+Tools:
+  - requests        — HTTP GET to parts.igem.org (with User-Agent header;
+                      bare requests without User-Agent returns HTTP 403)
+  - BeautifulSoup4  — HTML parsing; locates the promoter catalog <table>
+  - pandas          — tabular storage and CSV export
+  - Python re       — whitespace stripping on sequences
+
+Source URL:
+  https://parts.igem.org/Promoters/Catalog/Anderson
+
+Derivation:
+  1. GET the Anderson promoter catalog page.
+  2. Parse the single HTML table (columns: Identifier, Sequence, Measured Strength).
+  3. Map columns to part_id, sequence, rpu (float).
+  4. Clean: strip whitespace, uppercase sequences, drop rows with missing
+     sequence or non-numeric RPU (e.g. BBa_J23119 "n/a").
+  5. Save 19 rows to anderson_promoters.csv.
+
+Label column: rpu (Relative Promoter Units; BBa_J23100 = 1.0 reference)
+Part type:    promoter
+
+
+STEP 2 — Salis Lab RBS Dataset (Source C)
+-----------------------------------------
+Script:   python -m backend.data.fetch_salis
+Output:   synbio-studio/venv/backend/data/salis_rbs_raw.csv
+          synbio-studio/venv/backend/data/salis_rbs_clean.csv
+
+Tools:
+  - requests  — HTTP GET of supplementary XLS files from GitHub
+  - xlrd      — parse legacy .xls spreadsheets from Salis publications
+  - pandas    — assemble unified table, inspect columns, clean, export CSV
+
+RBS Calculator code repo (software only, no bundled CSV):
+  https://github.com/hsalis/Ribosome-Binding-Site-Calculator-v1.0
+
+Published measurement datasets (companion data, HTTP GET via SalisLabCode):
+  https://github.com/hsalis/SalisLabCode/tree/master/ModelTestSystem/examples/RBS/datasets
+    - Salis_Nat_Biotech_2009.xls          (132 rows)
+    - EspahBorujeni_NAR_2013.xls          (136 rows)
+    - EspahBorujeni_NAR_2013_extended.xls (39 rows)
+
+Derivation:
+  1. GET each supplementary .xls file from SalisLabCode via requests.
+  2. Parse with xlrd; extract mRNA/RBS sequence + measured expression rate per file.
+  3. Combine into salis_rbs_raw.csv (columns: RBS Sequence, Translation Initiation Rate).
+  4. Print all column names; identify sequence and rate columns heuristically.
+  5. Rename to sequence, translation_rate; drop nulls; uppercase sequences.
+  6. Save salis_rbs_clean.csv; print shape and first 3 rows.
+  Total: 307 rows.
+
+Label column: translation_rate (measured protein fluorescence / expression proxy)
+Part type:    rbs
+
+
+STEP 3 — Feature Extraction
+---------------------------
+Module: synbio-studio/venv/backend/prediction_engine/features.py
+Function: extract_features(sequence, part_type)
+
+Tools:
+  - BioPython (Bio.Seq, Bio.SeqUtils.gc_fraction) — sequence handling, GC content
+  - Python stdlib — motif scoring, base-composition fractions
+
+Features per sequence (12-dim vector):
+  length, gc_content, A/T/G/C fractions, is_promoter, is_rbs,
+  -35 box score (promoters), -10 box score (promoters),
+  Shine-Dalgarno strength (RBS), ATG presence flag
+
+
+STEP 4 — Model Training
+-----------------------
+Script:   python -m backend.prediction_engine.train
+Output:   synbio-studio/venv/backend/prediction_engine/models/gbm_v1.pkl
+
+Tools:
+  - pandas          — load anderson_promoters.csv and salis_rbs_clean.csv
+  - numpy           — feature matrix assembly, label normalization
+  - scikit-learn    — StandardScaler, GradientBoostingRegressor,
+                      mean_absolute_error, r2_score, 5-fold cross_val_score
+  - pickle          — serialize model + scaler + feature_names
+
+Derivation:
+  1. Load Anderson CSV → extract_features(seq, "promoter") → labels = rpu.
+  2. Load Salis CSV    → extract_features(seq, "rbs")       → labels = translation_rate.
+  3. Stack feature matrices into X; concatenate raw labels into y.
+  4. Min-max normalize y to [0, 1] across the combined dataset so promoter RPU
+     and RBS translation rates share a common scale.
+  5. StandardScaler fit/transform on X.
+  6. Train GradientBoostingRegressor(n_estimators=200, max_depth=4,
+     learning_rate=0.05, subsample=0.8).
+  7. Report MAE, training R², and 5-fold CV R².
+  8. Pickle {model, scaler, feature_names} to gbm_v1.pkl.
+
+Training results (this run):
+  MAE (normalized): 0.0167
+  R² (training):    0.9710
+  R² (5-fold CV):  -1.2824  (small Anderson set + heterogeneous Salis labels)
+
+
+STEP 5 — Prediction (Inference)
+-------------------------------
+Module: synbio-studio/venv/backend/prediction_engine/predictor.py
+Class:  ExpressionPredictor
+
+Tools:
+  - pickle     — load gbm_v1.pkl on __init__
+  - scikit-learn — scaler.transform, model.predict (GBM mode)
+  - features.py — extract_features on promoter sequence
+
+Derivation:
+  1. On init, check for synbio-studio/venv/backend/prediction_engine/models/gbm_v1.pkl.
+  2. If present → load model + scaler; mode = "GBM".
+  3. If absent  → mode = "heuristic"; use hardcoded Anderson RPU lookup dict.
+  4. predict(parts) finds the promoter part, extracts features, scales, predicts.
+  5. Returns {expression_level, confidence_interval (±15%), unit: "RPU",
+     model: "GBM-v1" or "heuristic"}.
+
+
+EXECUTION ORDER (commands — run from synbio-studio/venv/)
+---------------------------------------------------------
+1. python -m backend.data.fetch_anderson
+2. python -m backend.data.fetch_salis
+3. python -m backend.prediction_engine.train
+
+Allowed dependency stack (requirements.txt):
+  requests, beautifulsoup4, pandas, numpy, scikit-learn, biopython, xlrd, pickle (stdlib)

@@ -18,7 +18,7 @@ def root():
 
 # Try to mount the more featureful API if it's importable.
 try:
-	from backend.API import main as api_main
+	from backend.api import main as api_main
 	# mount the API FastAPI app at /api if available
 	if hasattr(api_main, "app"):
 		app.mount("/api", api_main.app)
