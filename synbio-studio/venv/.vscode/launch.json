@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run FastAPI",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["backend.api.main:app", "--reload", "--port", "8000"],
+      "jinja": true,
+      "justMyCode": true
+    },
+    {
+      "name": "Seed Database",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/data/seed_igem.py"
+    }
+  ]
+}
