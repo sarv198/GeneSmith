@@ -54,7 +54,17 @@ class ExpressionPredictor:
             raise ValueError("No promoter found in circuit")
 
         feats = extract_features(str(promoter.get("sequence", "")), "promoter")
-        X = np.array([[feats[name] for name in self.feature_names]])
+        row = []
+        for name in self.feature_names:
+            if name in feats:
+                row.append(feats[name])
+            elif name == "org_E. coli":
+                row.append(1.0)
+            elif name.startswith("org_"):
+                row.append(0.0)
+            else:
+                row.append(0.0)
+        X = np.array([row])
         X_scaled = self.scaler.transform(X)
         pred = float(self.model.predict(X_scaled)[0])
 

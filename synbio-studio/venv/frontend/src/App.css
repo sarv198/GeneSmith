@@ -1,0 +1,283 @@
+:root {
+  --bg: #0f1419;
+  --surface: #1a2332;
+  --border: #2d3a4f;
+  --text: #e7ecf3;
+  --muted: #8b9cb3;
+  --accent: #3d9cf5;
+  --accent-dim: #2563a8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+header {
+  margin-bottom: 1.5rem;
+}
+
+header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+
+header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.status-badge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-badge.ok {
+  background: #1a3d2e;
+  color: #6ee7a0;
+}
+
+.status-badge.warn {
+  background: #3d2e1a;
+  color: #f5c26e;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr 260px;
+  gap: 1rem;
+  min-height: 70vh;
+}
+
+.palette,
+.canvas,
+.prediction-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.palette h2,
+.canvas h2,
+.prediction-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+
+.part-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid #888;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: grab;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.part-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.part-card:active {
+  cursor: grabbing;
+}
+
+.part-card strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.part-card code {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.part-type {
+  display: inline-block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 0.15rem;
+}
+
+.canvas.empty {
+  border-style: dashed;
+}
+
+.canvas.drag-over {
+  border-color: var(--accent);
+  background: #1e2d42;
+}
+
+.drop-hint {
+  text-align: center;
+  color: var(--muted);
+  padding: 4rem 1rem;
+  margin: 0;
+}
+
+.canvas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.canvas-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+button {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.circuit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.circuit-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.circuit-item .index {
+  width: 1.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.circuit-part {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid #888;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.seq-preview {
+  display: block;
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+button.remove {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.full-sequence {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.full-sequence h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.full-sequence code {
+  display: block;
+  font-size: 0.65rem;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+  color: var(--muted);
+}
+
+.prediction-result .metric {
+  margin-bottom: 1rem;
+}
+
+.prediction-result .metric span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.prediction-result .metric strong {
+  font-size: 1.25rem;
+}
+
+.error {
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

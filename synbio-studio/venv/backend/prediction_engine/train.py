@@ -1,5 +1,5 @@
 """
-Run this script once to train your model on Anderson promoter data.
+Run this script once to train your model on combined promoter data.
 Usage: python -m backend.prediction_engine.train
 """
 
@@ -17,36 +17,51 @@ from sklearn.preprocessing import StandardScaler
 
 from backend.prediction_engine.features import extract_features
 
+PROMOTER_CSV = "backend/data/promoter_training_final.csv"
 ANDERSON_CSV = "backend/data/anderson_promoters.csv"
 MODEL_PATH = "backend/prediction_engine/models/gbm_v1.pkl"
+ORGANISMS = ["E. coli", "synthetic", "B. subtilis", "P. putida"]
+
+
+def _build_feature_matrix(df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
+    seq_feature_names: list[str] | None = None
+    feature_rows: list[list[float]] = []
+
+    for _, row in df.iterrows():
+        feats = extract_features(row["sequence"], "promoter")
+        if seq_feature_names is None:
+            seq_feature_names = list(feats.keys())
+        feature_rows.append([feats[name] for name in seq_feature_names])
+
+    org_dummies = pd.get_dummies(df["organism"].fillna("E. coli"), prefix="org")
+    for org in ORGANISMS:
+        col = f"org_{org}"
+        if col not in org_dummies.columns:
+            org_dummies[col] = 0
+    org_dummies = org_dummies[[f"org_{org}" for org in ORGANISMS]]
+
+    seq_matrix = np.array(feature_rows, dtype=float)
+    org_matrix = org_dummies.to_numpy(dtype=float)
+    feature_names = seq_feature_names + list(org_dummies.columns)
+    return np.hstack([seq_matrix, org_matrix]), feature_names
 
 
 def main() -> None:
     try:
-        df = pd.read_csv(ANDERSON_CSV)
+        df = pd.read_csv(PROMOTER_CSV)
     except FileNotFoundError as exc:
         raise SystemExit(
-            "ERROR: Could not find anderson_promoters.csv — "
-            "run python -m backend.data.fetch_anderson first"
+            "ERROR: Could not find promoter_training_final.csv — "
+            "run python -m backend.data.combine_datasets first"
         ) from exc
 
     df = df.dropna(subset=["sequence", "rpu"])
     df["sequence"] = df["sequence"].str.upper().str.strip()
-    print(f"Training on {len(df)} characterized promoters")
+    sources = ", ".join(sorted(df["source"].dropna().unique()))
+    print(f"Training on {len(df)} characterized promoters ({sources})")
 
-    feature_rows = []
-    labels = []
-    feature_names: list[str] | None = None
-
-    for _, row in df.iterrows():
-        feats = extract_features(row["sequence"], "promoter")
-        if feature_names is None:
-            feature_names = list(feats.keys())
-        feature_rows.append([feats[name] for name in feature_names])
-        labels.append(float(row["rpu"]))
-
-    X = np.array(feature_rows)
-    y = np.array(labels, dtype=float)
+    X, feature_names = _build_feature_matrix(df)
+    y = df["rpu"].astype(float).to_numpy()
     print(f"Feature matrix shape: {X.shape}")
     print(f"Expression range: {y.min():.3f} – {y.max():.3f} RPU")
 
@@ -76,6 +91,23 @@ def main() -> None:
     print(f"MAE:  {mae:.4f} RPU")
     print(f"R2:   {r2:.4f}")
     print(f"CV R2 (5-fold): {cv_scores.mean():.4f} +/- {cv_scores.std():.4f}")
+
+    anderson_r2 = None
+    if os.path.exists(ANDERSON_CSV):
+        anderson = pd.read_csv(ANDERSON_CSV).dropna(subset=["sequence", "rpu"])
+        anderson["sequence"] = anderson["sequence"].str.upper().str.strip()
+        anderson["organism"] = "E. coli"
+        X_anderson, _ = _build_feature_matrix(anderson)
+        y_anderson = anderson["rpu"].astype(float).to_numpy()
+        preds = model.predict(scaler.transform(X_anderson))
+        anderson_r2 = r2_score(y_anderson, preds)
+        print(f"R2 on held-out Anderson set ({len(anderson)} rows): {anderson_r2:.4f}")
+
+    print("\n-- Training set comparison -------")
+    print("Previous training set: 19 rows (Anderson only)")
+    print(f"New training set: {len(df)} rows ({sources} combined)")
+    if anderson_r2 is not None:
+        print(f"R2 on Anderson test set (apples-to-apples): {anderson_r2:.4f}")
 
     importances = sorted(
         zip(feature_names, model.feature_importances_),
