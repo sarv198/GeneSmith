@@ -61,11 +61,32 @@ def combine_promoters() -> pd.DataFrame:
     labeled = labeled.dropna(subset=["sequence", "rpu"])
     labeled = labeled.drop_duplicates(subset=["sequence"], keep="first")
 
+    print("Labeled rows by source (before final cap):")
+    for source, count in labeled["source"].value_counts().items():
+        print(f"  {source}: {count}")
+
+    labeled_sources = set(labeled["source"].unique())
+    core_sources = {"anderson", "regulondb", "regulondb_synthetic", "urtecho", "geo_gse108535", "anderson_augmented"}
+    active = labeled_sources & core_sources
+    if len(active) < 2:
+        print(
+            f"WARNING: Only {len(active)} labeled source(s) present ({', '.join(sorted(active))}). "
+            "Expected at least Anderson plus RegulonDB or Urtecho."
+        )
+
     if len(labeled) > MAX_PROMOTER_ROWS:
         labeled = stratified_sample(labeled, "rpu", MAX_PROMOTER_ROWS)
 
     labeled.to_csv(PROMOTER_OUTPUT, index=False)
     print(f"Promoter training final rows: {len(labeled)}")
+    print("Final labeled rows by source:")
+    for source, count in labeled["source"].value_counts().items():
+        print(f"  {source}: {count}")
+    if len(labeled) < 200:
+        print(
+            f"WARNING: Training set is small ({len(labeled)} rows). Model accuracy will "
+            "be limited. Consider adding more labeled data sources."
+        )
     print(
         "RPU distribution — "
         f"min={labeled['rpu'].min():.4f}, max={labeled['rpu'].max():.4f}, "

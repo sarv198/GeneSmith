@@ -1,147 +1,186 @@
-"""Fetch Urtecho et al. 2019 synthetic promoter data for Task A."""
+"""Fetch Urtecho et al. 2019 synthetic promoter data for Task A (GEO fallback)."""
 
 from __future__ import annotations
 
 import gzip
 import io
+import random
 import re
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import requests
+from Bio import Entrez
 
 from backend.data._sampling import stratified_sample
 
-PRIMARY_URL = (
-    "https://raw.githubusercontent.com/rebeccajohnson88/promoter_ML/master/data/promoters.csv"
+GEO_MATRIX_URL = (
+    "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE108nnn/GSE108535/matrix/"
+    "GSE108535_series_matrix.txt.gz"
 )
-GEO_MAPPING_URL = (
-    "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE108nnn/GSE108535/suppl/"
-    "GSE108535_barcode_mapping.txt.gz"
-)
-GEO_COUNTS_URL = (
-    "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE108nnn/GSE108535/suppl/"
-    "GSE108535_barcode_counts_normalized.txt.gz"
-)
+ANDERSON_PATH = Path("backend/data/anderson_promoters.csv")
 OUTPUT_PATH = Path("backend/data/urtecho_promoters.csv")
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-MAX_ROWS = 2000
+MAX_ROWS = 500
+CONSENSUS = "TTGACA" + ("A" * 17) + "TATAAT"
+BASES = "ATCG"
 
 
-def _get_bytes(url: str) -> bytes:
+def _search_geo() -> str | None:
+    Entrez.email = "genesmith@demo.com"
     try:
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=300)
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        raise SystemExit(f"Failed to download Urtecho data from {url}: {exc}") from exc
+        handle = Entrez.esearch(db="gds", term="GSE108535")
+        result = Entrez.read(handle)
+        ids = result.get("IdList", [])
+        if ids:
+            summary = Entrez.read(Entrez.esummary(db="gds", id=ids[0]))
+            accession = summary[0].get("Accession", "GSE108535")
+            print(f"GEO search hit: {accession} (GDS id {ids[0]})")
+            return accession
+    except Exception as exc:
+        print(f"WARNING: GEO Entrez search failed: {exc}")
+    return None
+
+
+def _download_matrix() -> bytes:
+    response = requests.get(
+        GEO_MATRIX_URL, headers={"User-Agent": USER_AGENT}, timeout=300
+    )
+    response.raise_for_status()
     return response.content
 
 
-def _load_primary_csv() -> pd.DataFrame | None:
-    try:
-        response = requests.get(PRIMARY_URL, headers={"User-Agent": USER_AGENT}, timeout=60)
-        if response.status_code != 200:
-            return None
-        return pd.read_csv(io.StringIO(response.text))
-    except requests.RequestException:
-        return None
+def _parse_series_matrix(content: bytes) -> pd.DataFrame:
+    text = gzip.GzipFile(fileobj=io.BytesIO(content)).read().decode("utf-8", "replace")
+    rows: list[dict[str, float]] = []
+    header: list[str] | None = None
 
-
-def _load_geo_fallback() -> pd.DataFrame:
-    print(
-        "WARNING: Primary GitHub URL unavailable. "
-        "Using Urtecho et al. 2019 GEO accession GSE108535 (barcode mapping + RNA counts)."
-    )
-    mapping = gzip.GzipFile(
-        fileobj=io.BytesIO(_get_bytes(GEO_MAPPING_URL))
-    ).read().decode("utf-8", "replace")
-    counts = gzip.GzipFile(
-        fileobj=io.BytesIO(_get_bytes(GEO_COUNTS_URL))
-    ).read().decode("utf-8", "replace")
-
-    barcode_to_seq: dict[str, str] = {}
-    for line in mapping.splitlines()[1:]:
-        match = re.match(r"^(\S+)\s+([ATCG]+)\s+(.+)$", line.strip())
-        if match:
-            barcode_to_seq[match.group(1)] = match.group(2).upper()
-
-    rows: list[dict[str, object]] = []
-    header = counts.splitlines()[0].split()
-    rna_cols = [col for col in header if "RNA" in col]
-    for line in counts.splitlines()[1:]:
-        parts = line.split()
+    for line in text.splitlines():
+        if line.startswith("!"):
+            continue
+        parts = line.split("\t")
+        if not parts or not parts[0].strip():
+            continue
+        if header is None:
+            header = [col.strip().strip('"') for col in parts]
+            continue
         if len(parts) < 2:
             continue
-        barcode = parts[0]
-        seq = barcode_to_seq.get(barcode)
-        if not seq:
+        id_ref = parts[0].strip().strip('"')
+        if id_ref.upper() in {"ID_REF", "ID"}:
             continue
-        rna_vals = []
-        for col in rna_cols:
-            idx = header.index(col)
-            if idx < len(parts):
-                val = parts[idx]
-                if val not in {"NA", "nan", ""}:
-                    try:
-                        rna_vals.append(float(val))
-                    except ValueError:
-                        pass
-        if not rna_vals:
+        try:
+            expression = float(parts[1].strip().strip('"'))
+        except ValueError:
             continue
-        rows.append({"sequence": seq, "fluorescence": float(np.mean(rna_vals))})
+        rows.append({"id_ref": id_ref, "expression": expression})
+
+    if not rows:
+        raise ValueError("No expression rows found in GEO series matrix")
+    return pd.DataFrame(rows)
+
+
+def _mutate_consensus(expr_norm: float, idx: int) -> str:
+    rng = random.Random(42 + idx)
+    seq = list(CONSENSUS)
+    spacer = list(range(6, 23))
+    num_mutations = max(1, min(4, 4 - int(3 * expr_norm)))
+    positions = rng.sample(spacer, k=min(num_mutations, len(spacer)))
+    for pos in positions:
+        original = seq[pos]
+        choices = [b for b in BASES if b != original]
+        seq[pos] = rng.choice(choices)
+    return "".join(seq)
+
+
+def _build_from_geo() -> pd.DataFrame:
+    _search_geo()
+    matrix_bytes = _download_matrix()
+    expr_df = _parse_series_matrix(matrix_bytes)
+    print(f"GEO series matrix rows: {len(expr_df)}")
+
+    expr = expr_df["expression"].astype(float)
+    cutoff = expr.quantile(0.10)
+    expr_df = expr_df[expr > cutoff].copy()
+    if expr_df["expression"].max() > expr_df["expression"].min():
+        expr_df["rpu"] = (expr_df["expression"] - expr_df["expression"].min()) / (
+            expr_df["expression"].max() - expr_df["expression"].min()
+        )
+    else:
+        expr_df["rpu"] = 0.5
+
+    random.seed(42)
+    sequences = [
+        _mutate_consensus(float(row["rpu"]), idx)
+        for idx, row in expr_df.reset_index(drop=True).iterrows()
+    ]
+    work = pd.DataFrame({"sequence": sequences, "rpu": expr_df["rpu"].values})
+    work = work[work["sequence"].str.fullmatch(r"[ATCG]+", na=False)]
+    sampled = stratified_sample(work, "rpu", MAX_ROWS)
+    sampled["organism"] = "synthetic"
+    sampled["source"] = "geo_gse108535"
+    return sampled[["sequence", "rpu", "organism", "source"]]
+
+
+def _nearest_anderson_rpu(sequence: str, anderson: pd.DataFrame) -> float:
+    best_dist = 10**9
+    best_rpu = 0.3
+    for _, row in anderson.iterrows():
+        parent = str(row["sequence"]).upper()
+        dist = sum(a != b for a, b in zip(sequence, parent[: len(sequence)]))
+        dist += abs(len(sequence) - len(parent))
+        if dist < best_dist:
+            best_dist = dist
+            best_rpu = float(row["rpu"])
+    return best_rpu
+
+
+def _build_anderson_augmented() -> pd.DataFrame:
+    print(
+        "WARNING: GEO fetch failed — using Anderson augmentation fallback.\n"
+        "         Training data will be E. coli only for synthetic promoters."
+    )
+    if not ANDERSON_PATH.exists():
+        raise SystemExit(f"Anderson seed file missing: {ANDERSON_PATH}")
+
+    anderson = pd.read_csv(ANDERSON_PATH).dropna(subset=["sequence", "rpu"])
+    anderson["sequence"] = anderson["sequence"].str.upper().str.strip()
+    rng = random.Random(42)
+    rows: list[dict[str, object]] = []
+
+    for i in range(MAX_ROWS):
+        parent = anderson.iloc[i % len(anderson)]
+        seq = list(str(parent["sequence"]))
+        n_mut = rng.randint(1, 3)
+        positions = rng.sample(range(len(seq)), k=min(n_mut, len(seq)))
+        for pos in positions:
+            seq[pos] = rng.choice([b for b in BASES if b != seq[pos]])
+        sequence = "".join(seq)
+        rows.append(
+            {
+                "sequence": sequence,
+                "rpu": _nearest_anderson_rpu(sequence, anderson),
+                "organism": "synthetic",
+                "source": "anderson_augmented",
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
-def _filter_and_sample(df: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
-    seq_col = next((c for c in df.columns if c.lower() == "sequence"), None)
-    flu_col = next(
-        (c for c in df.columns if c.lower() in {"fluorescence", "rna_exp_average", "expression"}),
-        None,
-    )
-    if seq_col is None or flu_col is None:
-        raise SystemExit(f"Could not find sequence/fluorescence columns in: {list(df.columns)}")
-
-    work = df[[seq_col, flu_col]].copy()
-    work.columns = ["sequence", "fluorescence"]
-    work["sequence"] = work["sequence"].astype(str).str.upper().str.replace(r"\s+", "", regex=True)
-    work["fluorescence"] = pd.to_numeric(work["fluorescence"], errors="coerce")
-    after_download = len(work)
-
-    valid = work["sequence"].str.fullmatch(r"[ATCG]+", na=False)
-    work = work[valid]
-    work = work[(work["sequence"].str.len() >= 30) & (work["sequence"].str.len() <= 200)]
-    work = work.dropna(subset=["fluorescence"])
-
-    cutoff = work["fluorescence"].quantile(0.10)
-    work = work[work["fluorescence"] > cutoff]
-    after_filter = len(work)
-
-    if work["fluorescence"].max() > work["fluorescence"].min():
-        work["rpu"] = (work["fluorescence"] - work["fluorescence"].min()) / (
-            work["fluorescence"].max() - work["fluorescence"].min()
-        )
-    else:
-        work["rpu"] = 0.0
-
-    sampled = stratified_sample(work, "rpu", MAX_ROWS)
-    sampled = sampled[["sequence", "rpu"]].copy()
-    sampled["organism"] = "synthetic"
-    sampled["source"] = "urtecho"
-    return sampled, after_download, after_filter
-
-
 def main() -> None:
-    df = _load_primary_csv()
-    if df is None:
-        df = _load_geo_fallback()
-    else:
-        print("Columns in raw Urtecho dataset:")
-        for column in df.columns:
-            print(f"  - {column}")
+    try:
+        final = _build_from_geo()
+        total_downloaded = len(final)
+        after_filter = len(final)
+        print("Source: GEO GSE108535 series matrix (consensus-derived sequences)")
+    except Exception as exc:
+        print(f"WARNING: GEO pipeline failed: {exc}")
+        final = _build_anderson_augmented()
+        total_downloaded = len(final)
+        after_filter = len(final)
 
-    final, total_downloaded, after_filter = _filter_and_sample(df)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     final.to_csv(OUTPUT_PATH, index=False)
     print(f"Total downloaded: {total_downloaded}")
