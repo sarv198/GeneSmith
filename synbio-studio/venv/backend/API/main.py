@@ -129,10 +129,13 @@ def recommend_parts(trait: str) -> list[dict]:
 @app.get("/model/status")
 def model_status() -> dict:
     return {
-        "model_loaded": predictor.model is not None,
+        "model_loaded": predictor.promoter_model is not None,
+        "rbs_model_loaded": predictor.rbs_model is not None,
         "mode": predictor.mode,
-        "model_path": MODEL_PATH,
-        "features_count": len(predictor.feature_names),
+        "promoter_model_path": MODEL_PATH,
+        "rbs_model_path": "backend/prediction_engine/models/rbs_gbm_v1.pkl",
+        "promoter_features_count": len(predictor.promoter_feature_names),
+        "rbs_features_count": len(predictor.rbs_feature_names),
     }
 
 

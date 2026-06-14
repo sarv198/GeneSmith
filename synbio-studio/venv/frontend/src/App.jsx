@@ -92,7 +92,12 @@ export default function App() {
         {modelStatus && (
           <div className={`status-badge ${modelStatus.model_loaded ? "ok" : "warn"}`}>
             Model: {modelStatus.mode || "unknown"}
-            {modelStatus.features_count ? ` · ${modelStatus.features_count} features` : ""}
+            {modelStatus.promoter_features_count
+              ? ` · promoter ${modelStatus.promoter_features_count}f`
+              : modelStatus.features_count
+                ? ` · ${modelStatus.features_count} features`
+                : ""}
+            {modelStatus.rbs_model_loaded ? " · RBS model loaded" : ""}
           </div>
         )}
       </header>
@@ -169,9 +174,38 @@ export default function App() {
           {prediction ? (
             <div className="prediction-result">
               <div className="metric">
-                <span>Expression</span>
-                <strong>{prediction.expression_level} {prediction.unit}</strong>
+                <span>Protein yield (relative)</span>
+                <strong>{prediction.expression_level}</strong>
               </div>
+              {prediction.promoter_strength && (
+                <div className="metric">
+                  <span>Promoter strength</span>
+                  <strong>{prediction.promoter_strength.rpu} RPU</strong>
+                </div>
+              )}
+              {prediction.translation_rate && (
+                <div className="metric">
+                  <span>Translation rate</span>
+                  <strong>
+                    {prediction.translation_rate.value}{" "}
+                    ({prediction.translation_rate.model})
+                  </strong>
+                </div>
+              )}
+              {prediction.protein_yield && (
+                <>
+                  <div className="metric">
+                    <span>Protein length</span>
+                    <strong>{prediction.protein_yield.amino_acid_length} aa</strong>
+                  </div>
+                  {prediction.protein_yield.amino_acid_sequence && (
+                    <div className="metric seq-metric">
+                      <span>Amino acid sequence</span>
+                      <code>{prediction.protein_yield.amino_acid_sequence}</code>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="metric">
                 <span>Confidence</span>
                 <strong>
@@ -182,6 +216,9 @@ export default function App() {
                 <span>Model</span>
                 <strong>{prediction.model}</strong>
               </div>
+              {prediction.protein_yield?.note && (
+                <p className="hint">{prediction.protein_yield.note}</p>
+              )}
             </div>
           ) : (
             <p className="hint">Add a promoter and click Predict expression.</p>

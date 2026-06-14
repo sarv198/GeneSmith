@@ -56,6 +56,18 @@ def _build_features(seq: str, part_type: str) -> dict:
         )
         rbs_features = {"sd_match": best_sd}
 
+    cds_features = {}
+    if part_type in {"cds", "gene"}:
+        aa_len = len(seq) // 3
+        cds_features = {
+            "cds_length_aa": aa_len,
+            "cds_length_normalized": min(aa_len / 500, 1.0),
+            "start_codon": 1.0 if seq.startswith("ATG") else 0.0,
+            "stop_codon_present": 1.0
+            if seq[-3:] in {"TAA", "TAG", "TGA"}
+            else 0.0,
+        }
+
     return {
         "gc_content": gc_content,
         "at_content": at_content,
@@ -64,6 +76,7 @@ def _build_features(seq: str, part_type: str) -> dict:
         **dinuc_freq,
         **promoter_features,
         **rbs_features,
+        **cds_features,
     }
 
 

@@ -1,5 +1,5 @@
 """
-Run this script once to train your model on combined promoter data.
+Train promoter (RPU) and RBS (translation rate) GBM models.
 Usage: python -m backend.prediction_engine.train
 """
 
@@ -19,11 +19,13 @@ from backend.prediction_engine.features import extract_features
 
 PROMOTER_CSV = "backend/data/promoter_training_final.csv"
 ANDERSON_CSV = "backend/data/anderson_promoters.csv"
-MODEL_PATH = "backend/prediction_engine/models/gbm_v1.pkl"
+RBS_CSV = "backend/data/salis_rbs_clean.csv"
+PROMOTER_MODEL_PATH = "backend/prediction_engine/models/gbm_v1.pkl"
+RBS_MODEL_PATH = "backend/prediction_engine/models/rbs_gbm_v1.pkl"
 ORGANISMS = ["E. coli", "synthetic", "B. subtilis", "P. putida"]
 
 
-def _build_feature_matrix(df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
+def _build_promoter_matrix(df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
     seq_feature_names: list[str] | None = None
     feature_rows: list[list[float]] = []
 
@@ -46,29 +48,27 @@ def _build_feature_matrix(df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
     return np.hstack([seq_matrix, org_matrix]), feature_names
 
 
-def main() -> None:
-    try:
-        df = pd.read_csv(PROMOTER_CSV)
-    except FileNotFoundError as exc:
-        raise SystemExit(
-            "ERROR: Could not find promoter_training_final.csv — "
-            "run python -m backend.data.combine_datasets first"
-        ) from exc
+def _build_rbs_matrix(df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
+    feature_names: list[str] | None = None
+    feature_rows: list[list[float]] = []
 
-    df = df.dropna(subset=["sequence", "rpu"])
-    df["sequence"] = df["sequence"].str.upper().str.strip()
-    sources = ", ".join(sorted(df["source"].dropna().unique()))
-    print(f"Training on {len(df)} characterized promoters ({sources})")
+    for _, row in df.iterrows():
+        feats = extract_features(row["sequence"], "rbs")
+        if feature_names is None:
+            feature_names = list(feats.keys())
+        feature_rows.append([feats[name] for name in feature_names])
 
-    X, feature_names = _build_feature_matrix(df)
-    y = df["rpu"].astype(float).to_numpy()
-    print(f"Feature matrix shape: {X.shape}")
-    print(f"Expression range: {y.min():.3f} – {y.max():.3f} RPU")
+    return np.array(feature_rows, dtype=float), feature_names
 
+
+def _train_gbm(
+    X: np.ndarray,
+    y: np.ndarray,
+    label: str,
+) -> tuple[GradientBoostingRegressor, StandardScaler, dict[str, float]]:
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
-
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
@@ -83,42 +83,25 @@ def main() -> None:
     model.fit(X_train_scaled, y_train)
 
     y_pred = model.predict(X_test_scaled)
-    mae = mean_absolute_error(y_test, y_pred)
-    r2 = r2_score(y_test, y_pred)
     cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring="r2")
-
-    print("\n-- Results ---------------------")
-    print(f"MAE:  {mae:.4f} RPU")
-    print(f"R2:   {r2:.4f}")
-    print(f"CV R2 (5-fold): {cv_scores.mean():.4f} +/- {cv_scores.std():.4f}")
-
-    anderson_r2 = None
-    if os.path.exists(ANDERSON_CSV):
-        anderson = pd.read_csv(ANDERSON_CSV).dropna(subset=["sequence", "rpu"])
-        anderson["sequence"] = anderson["sequence"].str.upper().str.strip()
-        anderson["organism"] = "E. coli"
-        X_anderson, _ = _build_feature_matrix(anderson)
-        y_anderson = anderson["rpu"].astype(float).to_numpy()
-        preds = model.predict(scaler.transform(X_anderson))
-        anderson_r2 = r2_score(y_anderson, preds)
-        print(f"R2 on held-out Anderson set ({len(anderson)} rows): {anderson_r2:.4f}")
-
-    print("\n-- Training set comparison -------")
-    print("Previous training set: 19 rows (Anderson only)")
-    print(f"New training set: {len(df)} rows ({sources} combined)")
-    if anderson_r2 is not None:
-        print(f"R2 on Anderson test set (apples-to-apples): {anderson_r2:.4f}")
-
-    importances = sorted(
-        zip(feature_names, model.feature_importances_),
-        key=lambda item: -item[1],
+    metrics = {
+        "mae": float(mean_absolute_error(y_test, y_pred)),
+        "r2": float(r2_score(y_test, y_pred)),
+        "cv_r2_mean": float(cv_scores.mean()),
+        "cv_r2_std": float(cv_scores.std()),
+    }
+    print(f"\n-- {label} results ----------------")
+    print(f"MAE:  {metrics['mae']:.4f}")
+    print(f"R2:   {metrics['r2']:.4f}")
+    print(
+        f"CV R2 (5-fold): {metrics['cv_r2_mean']:.4f} +/- {metrics['cv_r2_std']:.4f}"
     )
-    print("\n-- Top 5 Features --------------")
-    for name, importance in importances[:5]:
-        print(f"  {name}: {importance:.4f}")
+    return model, scaler, metrics
 
-    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-    with open(MODEL_PATH, "wb") as handle:
+
+def _save_model(path: str, model, scaler, feature_names: list[str]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as handle:
         pickle.dump(
             {
                 "model": model,
@@ -127,8 +110,68 @@ def main() -> None:
             },
             handle,
         )
+    print(f"Model saved to {path}")
 
-    print(f"\nModel saved to {MODEL_PATH}")
+
+def train_promoter() -> None:
+    try:
+        df = pd.read_csv(PROMOTER_CSV)
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            "ERROR: Could not find promoter_training_final.csv — "
+            "run python -m backend.data.combine_datasets first"
+        ) from exc
+
+    df = df.dropna(subset=["sequence", "rpu"])
+    df["sequence"] = df["sequence"].str.upper().str.strip()
+    sources = ", ".join(sorted(df["source"].dropna().unique()))
+    print(f"Training promoter model on {len(df)} rows ({sources})")
+
+    X, feature_names = _build_promoter_matrix(df)
+    y = df["rpu"].astype(float).to_numpy()
+    print(f"Feature matrix shape: {X.shape}")
+    print(f"RPU range: {y.min():.3f} – {y.max():.3f}")
+
+    model, scaler, _ = _train_gbm(X, y, "Promoter (RPU)")
+    _save_model(PROMOTER_MODEL_PATH, model, scaler, feature_names)
+
+    if os.path.exists(ANDERSON_CSV):
+        anderson = pd.read_csv(ANDERSON_CSV).dropna(subset=["sequence", "rpu"])
+        anderson["sequence"] = anderson["sequence"].str.upper().str.strip()
+        anderson["organism"] = "E. coli"
+        X_anderson, _ = _build_promoter_matrix(anderson)
+        y_anderson = anderson["rpu"].astype(float).to_numpy()
+        preds = model.predict(scaler.transform(X_anderson))
+        print(f"R2 on Anderson set ({len(anderson)} rows): {r2_score(y_anderson, preds):.4f}")
+
+
+def train_rbs() -> None:
+    try:
+        df = pd.read_csv(RBS_CSV)
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            "ERROR: Could not find salis_rbs_clean.csv — "
+            "run python -m backend.data.fetch_salis first"
+        ) from exc
+
+    df = df.dropna(subset=["sequence", "translation_rate"])
+    df["sequence"] = df["sequence"].astype(str).str.upper().str.strip()
+    rates = df["translation_rate"].astype(float)
+    df["translation_rate_norm"] = (rates - rates.min()) / (rates.max() - rates.min())
+
+    print(f"\nTraining RBS model on {len(df)} Salis sequences")
+    X, feature_names = _build_rbs_matrix(df)
+    y = df["translation_rate_norm"].to_numpy()
+    print(f"Feature matrix shape: {X.shape}")
+    print(f"Translation rate range (normalized): {y.min():.3f} – {y.max():.3f}")
+
+    model, scaler, _ = _train_gbm(X, y, "RBS (translation rate)")
+    _save_model(RBS_MODEL_PATH, model, scaler, feature_names)
+
+
+def main() -> None:
+    train_promoter()
+    train_rbs()
 
 
 if __name__ == "__main__":
