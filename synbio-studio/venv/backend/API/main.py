@@ -766,6 +766,7 @@ def list_parts(
         )
         work = work[name_match | desc_match]
 
+    work = work.sort_values("part_id").reset_index(drop=True)
     total_matches = len(work)
     limited = work.iloc[offset : offset + limit]
     parts = limited[
@@ -776,7 +777,12 @@ def list_parts(
         if _normalize_type(part["part_type"]) == "cds":
             part["part_type"] = part.get("part_type", "cds")
 
-    return {"parts": parts, "total_matches": total_matches}
+    return {
+        "parts": parts,
+        "total_matches": total_matches,
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 @app.get("/parts/{part_id}/structure")

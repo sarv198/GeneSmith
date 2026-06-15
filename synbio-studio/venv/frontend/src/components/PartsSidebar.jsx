@@ -32,15 +32,21 @@ export default function PartsSidebar({ onAddPart, refreshKey = 0 }) {
 
   const fetchParts = useCallback(async (typeFilter, query, page) => {
     setLoading(true);
+    const requestOffset = page * PAGE_SIZE;
     try {
       const params = {
         limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
+        offset: requestOffset,
       };
       if (typeFilter) params.type = typeFilter;
       if (query) params.search = query;
       const { data } = await api.get("/parts", { params });
       const mapped = (data.parts || []).map(partToPaletteItem);
+      if (data.offset != null && data.offset !== requestOffset) {
+        console.warn(
+          "Parts API ignored offset — restart backend from synbio-studio/venv",
+        );
+      }
       setParts(mapped.length ? mapped : PART_LIBRARY.slice(0, PAGE_SIZE));
       setTotalMatches(data.total_matches ?? mapped.length);
       setOffline(false);
@@ -59,12 +65,22 @@ export default function PartsSidebar({ onAddPart, refreshKey = 0 }) {
 
   useEffect(() => {
     setLibraryPage(0);
-  }, [activeTab, search, refreshKey]);
+  }, [refreshKey]);
 
   useEffect(() => {
     const tab = TABS.find((t) => t.id === activeTab);
     fetchParts(tab?.type || null, search.trim(), libraryPage);
   }, [activeTab, search, libraryPage, refreshKey, fetchParts]);
+
+  const changeTab = (tabId) => {
+    setActiveTab(tabId);
+    setLibraryPage(0);
+  };
+
+  const changeSearch = (value) => {
+    setSearch(value);
+    setLibraryPage(0);
+  };
 
   const goNext = () => {
     setLibraryPage((p) => Math.min(p + 1, totalPages - 1));
@@ -90,7 +106,7 @@ export default function PartsSidebar({ onAddPart, refreshKey = 0 }) {
         type="text"
         placeholder="Search parts..."
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => changeSearch(e.target.value)}
       />
       <div className="filter-tabs">
         {TABS.map((tab) => (
@@ -98,7 +114,7 @@ export default function PartsSidebar({ onAddPart, refreshKey = 0 }) {
             key={tab.id}
             type="button"
             className={activeTab === tab.id ? "tab active" : "tab"}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => changeTab(tab.id)}
           >
             {tab.label}
           </button>

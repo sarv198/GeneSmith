@@ -86,7 +86,9 @@ class ExpressionPredictor:
                 self.mode = "GBM-v1"
             except Exception as exc:
                 print(
-                    f"WARNING: Could not load promoter model ({exc}) — using heuristic fallback"
+                    f"WARNING: Could not load promoter model ({exc}) — using heuristic fallback. "
+                    "Run from synbio-studio/venv and ensure scikit-learn matches the trained "
+                    "model version (python -m backend.prediction_engine.train)."
                 )
 
         if os.path.exists(RBS_MODEL_PATH):
@@ -97,7 +99,11 @@ class ExpressionPredictor:
                 self.rbs_scaler = data["scaler"]
                 self.rbs_feature_names = list(data["feature_names"])
             except Exception as exc:
-                print(f"WARNING: Could not load RBS model ({exc}) — using heuristic fallback")
+                print(
+                    f"WARNING: Could not load RBS model ({exc}) — using heuristic fallback. "
+                    "Run from synbio-studio/venv and ensure scikit-learn matches the trained "
+                    "model version (python -m backend.prediction_engine.train)."
+                )
 
         if self.promoter_model is None:
             print(
