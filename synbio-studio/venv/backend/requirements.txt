@@ -7,3 +7,5 @@ biopython
 xlrd
 fastapi
 uvicorn
+sqlalchemy
+alembic
