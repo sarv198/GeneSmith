@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import numpy as np
 import pandas as pd
+import requests
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -94,8 +95,57 @@ def _load_parts_df() -> pd.DataFrame | None:
         print(f"WARNING: {PARTS_MASTER_PATH} not found — parts library unavailable")
         return None
     df = pd.read_csv(PARTS_MASTER_PATH)
+    for column in ("pdb_id", "uniprot_id"):
+        if column not in df.columns:
+            df[column] = pd.NA
     print(f"Loaded {len(df)} parts from {PARTS_MASTER_PATH}")
     return df
+
+
+def _is_present(value: Any) -> bool:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return False
+    text = str(value).strip()
+    return text != "" and text.lower() != "nan"
+
+
+def _extract_alphafold_id(uniprot_payload: dict[str, Any]) -> str | None:
+    for xref in uniprot_payload.get("uniProtKBCrossReferences", []):
+        if xref.get("database") != "AlphaFoldDB":
+            continue
+        for prop in xref.get("properties", []):
+            if prop.get("key") == "id" and _is_present(prop.get("value")):
+                return str(prop["value"]).strip()
+        if _is_present(xref.get("id")):
+            return str(xref["id"]).strip()
+    return None
+
+
+def _fetch_alphafold_pdb_url(uniprot_id: str) -> tuple[str | None, str | None]:
+    url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.json"
+    response = requests.get(url, timeout=30)
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": f"UniProt lookup failed for {uniprot_id}",
+                "detail": f"HTTP {response.status_code}",
+            },
+        )
+    payload = response.json()
+    if payload.get("primaryAccession") != uniprot_id:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": f"UniProt accession mismatch for {uniprot_id}",
+                "detail": f"Got {payload.get('primaryAccession')}",
+            },
+        )
+    alphafold_id = _extract_alphafold_id(payload)
+    if not alphafold_id:
+        return None, None
+    pdb_url = f"https://alphafold.ebi.ac.uk/files/AF-{alphafold_id}-F1-model_v4.pdb"
+    return alphafold_id, pdb_url
 
 
 def _load_circuit_model() -> dict[str, Any] | None:
@@ -523,6 +573,54 @@ def list_parts(
     return {"parts": parts, "total_matches": total_matches}
 
 
+@app.get("/parts/{part_id}/structure")
+def get_part_structure(part_id: str) -> dict[str, Any]:
+    if PARTS_DF is None:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Parts library not loaded. Run combine_datasets.py first.",
+            },
+        )
+
+    matches = PARTS_DF[PARTS_DF["part_id"] == part_id]
+    if matches.empty:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": f"Part not found: {part_id}"},
+        )
+
+    row = matches.iloc[0]
+    sequence = str(row.get("sequence", ""))
+    uniprot_id = row.get("uniprot_id")
+    pdb_id = row.get("pdb_id")
+
+    if not _is_present(uniprot_id):
+        return {
+            "part_id": part_id,
+            "part_type": str(row.get("part_type", "")),
+            "render_mode": "dna_helix",
+            "sequence": sequence,
+            "uniprot_id": None,
+            "pdb_id": str(pdb_id).strip() if _is_present(pdb_id) else None,
+            "alphafold_id": None,
+            "pdb_url": None,
+        }
+
+    uniprot_id = str(uniprot_id).strip()
+    alphafold_id, pdb_url = _fetch_alphafold_pdb_url(uniprot_id)
+    return {
+        "part_id": part_id,
+        "part_type": str(row.get("part_type", "")),
+        "render_mode": "alphafold",
+        "sequence": sequence,
+        "uniprot_id": uniprot_id,
+        "pdb_id": str(pdb_id).strip() if _is_present(pdb_id) else None,
+        "alphafold_id": alphafold_id,
+        "pdb_url": pdb_url,
+    }
+
+
 @app.post("/recommend")
 def recommend(body: RecommendRequest) -> dict[str, Any]:
     recommended_parts = recommend_parts(body.trait)
@@ -547,6 +645,7 @@ def admin_refresh_parts() -> dict[str, str]:
     commands = [
         [sys.executable, "-m", "backend.data.fetch_igem_full"],
         [sys.executable, "-m", "backend.data.combine_datasets"],
+        [sys.executable, "-m", "backend.data.seed_structure_ids"],
     ]
     job_id = _start_job(commands)
 

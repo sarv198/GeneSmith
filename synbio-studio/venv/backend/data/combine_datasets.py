@@ -124,6 +124,9 @@ def combine_parts() -> pd.DataFrame:
 def main() -> None:
     combine_promoters()
     combine_parts()
+    from backend.data.seed_structure_ids import seed_structure_ids
+
+    seed_structure_ids(PARTS_OUTPUT)
 
 
 if __name__ == "__main__":

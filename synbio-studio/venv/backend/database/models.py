@@ -21,6 +21,8 @@ class GeneticPart(Base):
     sequence: Mapped[str] = mapped_column(Text)
     description: Mapped[str] = mapped_column(Text, default="")
     source: Mapped[str] = mapped_column(String(64), default="")
+    pdb_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    uniprot_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     def __repr__(self) -> str:
         return f"<GeneticPart {self.part_id} ({self.part_type})>"
