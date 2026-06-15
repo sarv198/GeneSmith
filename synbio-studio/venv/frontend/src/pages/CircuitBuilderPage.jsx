@@ -101,13 +101,14 @@ export default function CircuitBuilderPage() {
       </section>
 
       {showOutput && (
-        <div ref={outputRef}>
+        <>
+          <hr className="output-divider" ref={outputRef} />
           <PredictionPanel
             predictResult={predictResult}
             error={error}
             loading={loading}
           />
-        </div>
+        </>
       )}
 
       <SettingsModal

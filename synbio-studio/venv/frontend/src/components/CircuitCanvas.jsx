@@ -44,12 +44,17 @@ export default function CircuitCanvas({
       <div className="circuit-builder-header">
         <h2 className="section-title">Circuit Builder</h2>
         <div className="circuit-builder-actions">
-          <button type="button" onClick={onClear} disabled={!circuit.length}>
+          <button
+            type="button"
+            className="circuit-clear-btn"
+            onClick={onClear}
+            disabled={!circuit.length}
+          >
             Clear
           </button>
           <button
             type="button"
-            className="btn-dark"
+            className="btn-dark circuit-predict-btn"
             onClick={onPredict}
             disabled={!circuit.length || loading}
           >

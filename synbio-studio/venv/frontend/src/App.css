@@ -1,4 +1,5 @@
 :root {
+  --font: "Chakra Petch", system-ui, sans-serif;
   --bg-cream: #fffbec;
   --nav-purple: #4f0997;
   --purple-dark: #3a0670;
@@ -16,10 +17,34 @@
 
 body {
   margin: 0;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font);
+  font-weight: 500;
   background: var(--bg-cream);
   color: var(--text);
   min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--font);
+  font-weight: 500;
+}
+
+h1,
+h2,
+h3,
+strong,
+.section-title,
+.navbar-link,
+.type-filter,
+.output-metric-value,
+.output-subtitle,
+.preview-title,
+.btn-dark,
+.line-search-btn {
+  font-weight: 700;
 }
 
 .app-shell {
@@ -64,7 +89,7 @@ body {
 }
 
 .navbar-logo {
-  height: 2.5rem;
+  height: 2.25rem;
   width: auto;
   display: block;
   object-fit: contain;
@@ -218,17 +243,21 @@ body {
 
 .line-search-btn {
   width: 30%;
-  background: #000;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   color: #fff;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 0.95rem;
-  font-weight: 600;
   cursor: pointer;
   padding: 0.75rem 1rem;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
 .line-search-btn:hover:not(:disabled) {
-  background: #222;
+  background: rgba(0, 0, 0, 0.58);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
 .line-search-btn:disabled {
@@ -353,7 +382,7 @@ body {
 }
 
 .part-tile-id {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font);
   font-size: 0.78rem;
   color: var(--text);
 }
@@ -375,7 +404,7 @@ body {
   display: flex;
   gap: 1.5rem;
   width: 100%;
-  margin-bottom: 2rem;
+  margin-bottom: 0;
   align-items: stretch;
 }
 
@@ -400,6 +429,30 @@ body {
 .circuit-builder-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.circuit-builder-actions .circuit-clear-btn {
+  transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s,
+    transform 0.15s;
+}
+
+.circuit-builder-actions .circuit-clear-btn:hover:not(:disabled) {
+  background: rgba(79, 9, 151, 0.08);
+  border-color: var(--nav-purple);
+  color: var(--nav-purple);
+  box-shadow: 0 3px 12px rgba(79, 9, 151, 0.15);
+  transform: translateY(-1px);
+}
+
+.circuit-builder-actions .circuit-predict-btn {
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.circuit-builder-actions .circuit-predict-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.78);
+  border-color: rgba(0, 0, 0, 0.78);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  transform: translateY(-1px);
 }
 
 .circuit-drop-hint {
@@ -500,25 +553,32 @@ button.remove {
   overflow: hidden;
   border: 1px solid #c9c0a8;
   background: #e8e0c8;
+  width: 100%;
+  height: 280px;
   min-height: 280px;
 }
 
 .preview-canvas canvas {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
+  display: block;
   width: 100% !important;
   height: 100% !important;
 }
 
-/* ── Output panel ── */
+/* ── Output section ── */
+.output-divider {
+  border: none;
+  border-top: 3px solid var(--nav-purple);
+  margin: 0.5rem 0 2rem;
+  width: 100%;
+}
+
 .output-panel {
   width: 100%;
-  background: var(--bg-cream);
-  border: 3px solid var(--purple-dark);
+  background: transparent;
+  border: none;
   border-radius: 0;
-  padding: 1.25rem 1.5rem 1.5rem;
-  margin-bottom: 2rem;
+  padding: 0 0 2rem;
+  margin: 0;
 }
 
 .output-panel-empty {
@@ -598,7 +658,7 @@ button.remove {
 .output-protein-seq {
   max-height: 200px;
   overflow: auto;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font);
   font-size: 0.85rem;
 }
 

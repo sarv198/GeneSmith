@@ -1,8 +1,104 @@
+import { useState } from "react";
+import {
+  STEPS,
+  STEP_RENDERS,
+  PartChip,
+  TAG_COLORS,
+} from "../components/theory/TheorySteps.jsx";
+import "../theory.css";
+
 export default function TheoryPage() {
+  const [current, setCurrent] = useState(0);
+  const StepComponent = STEP_RENDERS[current];
+  const step = STEPS[current];
+  const tagStyle = TAG_COLORS[step.tag] || TAG_COLORS.Overview;
+
   return (
-    <div className="page placeholder-page">
-      <h1>Theory</h1>
-      <p>Coming soon.</p>
+    <div className="page theory-page">
+      <header className="theory-hero">
+        <div className="theory-hero-eyebrow">GeneSmith — Theory</div>
+        <h1>From DNA to protein</h1>
+        <p className="theory-hero-lead">
+          How a genetic circuit — promoter, RBS, gene, and terminator — works
+          together to produce a protein. Walk through each molecular step.
+        </p>
+      </header>
+
+      <nav className="theory-step-nav" aria-label="Theory steps">
+        {STEPS.map((s, i) => (
+          <button
+            key={s.id}
+            type="button"
+            className={`theory-step-pill ${i === current ? "active" : ""} ${i < current ? "done" : ""}`}
+            onClick={() => setCurrent(i)}
+          >
+            {i < current ? "✓ " : ""}
+            {s.label}
+          </button>
+        ))}
+      </nav>
+
+      <article className="theory-stage" key={current}>
+        <div className="theory-stage-header">
+          <div className="theory-stage-meta">
+            <span className="theory-tag" style={{ background: tagStyle.bg, color: tagStyle.text }}>
+              {step.tag}
+            </span>
+            <span className="theory-step-count">
+              {current + 1} of {STEPS.length}
+            </span>
+          </div>
+          <h2 className="theory-stage-title">{step.title}</h2>
+          <p className="theory-stage-desc">{step.desc}</p>
+        </div>
+
+        <div className="theory-viz">
+          <StepComponent />
+        </div>
+
+        <footer className="theory-nav-footer">
+          <button
+            type="button"
+            className="theory-btn theory-btn-ghost"
+            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+            disabled={current === 0}
+          >
+            ← Back
+          </button>
+
+          <div className="theory-progress-dots" aria-hidden="true">
+            {STEPS.map((_, i) => (
+              <span
+                key={i}
+                role="button"
+                tabIndex={0}
+                className={`theory-progress-dot ${i === current ? "active" : ""} ${i < current ? "done" : ""}`}
+                onClick={() => setCurrent(i)}
+                onKeyDown={(e) => e.key === "Enter" && setCurrent(i)}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="theory-btn theory-btn-primary"
+            onClick={() => setCurrent((c) => Math.min(STEPS.length - 1, c + 1))}
+            disabled={current === STEPS.length - 1}
+          >
+            {current === STEPS.length - 1 ? "Complete ✓" : "Next →"}
+          </button>
+        </footer>
+      </article>
+
+      <aside className="theory-legend">
+        <div className="theory-legend-label">Circuit part legend</div>
+        <div className="theory-legend-chips">
+          <PartChip type="promoter" label="Promoter — transcription signal" />
+          <PartChip type="rbs" label="RBS — ribosome binding" />
+          <PartChip type="gene" label="Gene (CDS) — protein blueprint" />
+          <PartChip type="term" label="Terminator — transcription end" />
+        </div>
+      </aside>
     </div>
   );
 }

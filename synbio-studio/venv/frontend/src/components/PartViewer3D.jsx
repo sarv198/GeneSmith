@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as NGL from "ngl";
-import $3Dmol from "3dmol";
+import { createViewer } from "3dmol";
 import { api } from "../api/client.js";
 import { badgeClass, displayType } from "../utils/partHelpers.js";
 import { dnaComplement } from "../utils/aminoAcidColors.js";
@@ -64,7 +64,7 @@ export default function PartViewer3D({ part }) {
     if (!showDna || showProtein) return undefined;
     const container = document.getElementById(molId);
     if (!container) return undefined;
-    const viewer = $3Dmol.createViewer(container, { backgroundColor: "#0f172a" });
+    const viewer = createViewer(container, { backgroundColor: "#0f172a" });
     const seq = (structureData?.sequence || part.sequence || "")
       .replace(/\./g, "")
       .toUpperCase();

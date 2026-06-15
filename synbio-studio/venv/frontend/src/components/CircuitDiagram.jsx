@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import $3Dmol from "3dmol";
+import { createViewer } from "3dmol";
 import { api } from "../api/client.js";
 
 function downloadSvg(svg, filename) {
@@ -48,7 +48,7 @@ export default function CircuitDiagram({ circuitSvg, partIds, parts, showHelix =
     const container = document.getElementById("circuit-helix");
     if (!container) return undefined;
 
-    const viewer = $3Dmol.createViewer(container, { backgroundColor: "#1a0a2e" });
+    const viewer = createViewer(container, { backgroundColor: "#1a0a2e" });
     viewerRef.current = viewer;
 
     const assembled = dnaStructure.assembled_sequence;
