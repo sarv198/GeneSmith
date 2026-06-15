@@ -12,7 +12,7 @@ function downloadSvg(svg, filename) {
   URL.revokeObjectURL(url);
 }
 
-export default function CircuitDiagram({ circuitSvg, partIds, parts }) {
+export default function CircuitDiagram({ circuitSvg, partIds, parts, showHelix = true }) {
   const [dnaStructure, setDnaStructure] = useState(null);
   const [loading, setLoading] = useState(false);
   const [spinning, setSpinning] = useState(false);
@@ -24,7 +24,7 @@ export default function CircuitDiagram({ circuitSvg, partIds, parts }) {
       : (parts || []).map((part) => part.part_id).filter(Boolean);
 
   useEffect(() => {
-    if (!ids.length) return undefined;
+    if (!showHelix || !ids.length) return undefined;
     let cancelled = false;
     setLoading(true);
     api
@@ -107,6 +107,7 @@ export default function CircuitDiagram({ circuitSvg, partIds, parts }) {
         </div>
       </section>
 
+      {showHelix && (
       <section className="circuit-helix-section">
         <div className="section-header">
           <h3>3D Circuit DNA</h3>
@@ -126,6 +127,7 @@ export default function CircuitDiagram({ circuitSvg, partIds, parts }) {
           </p>
         )}
       </section>
+      )}
     </div>
   );
 }

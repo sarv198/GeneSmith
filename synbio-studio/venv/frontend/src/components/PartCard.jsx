@@ -1,9 +1,12 @@
+import { useCallback, useEffect, useState } from "react";
 import { useDrag } from "react-dnd";
 import { typeColor, partToPaletteItem } from "../api/client.js";
-import { badgeClass, displayType, PART_ITEM_TYPE } from "../utils/partHelpers.js";
+import { displayType, PART_ITEM_TYPE } from "../utils/partHelpers.js";
+import { extractOrganism, extractTrait } from "../utils/partDisplay.js";
 
-export default function PartCard({ part, onAddPart, showAddButton = true, compact = false }) {
+export default function PartCard({ part, onAddPart }) {
   const palettePart = part.label ? part : partToPaletteItem(part);
+  const color = palettePart.color || typeColor(palettePart.part_type);
   const dragPayload = {
     part_id: palettePart.part_id,
     part_type: palettePart.part_type,
@@ -11,7 +14,7 @@ export default function PartCard({ part, onAddPart, showAddButton = true, compac
     name: palettePart.name || palettePart.label,
     description: palettePart.description || "",
     sequence: palettePart.sequence,
-    color: palettePart.color || typeColor(palettePart.part_type),
+    color,
   };
 
   const [{ isDragging }, drag] = useDrag({
@@ -20,36 +23,25 @@ export default function PartCard({ part, onAddPart, showAddButton = true, compac
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   });
 
-  const description = (palettePart.description || "").slice(0, 80);
+  const organism = extractOrganism(palettePart.description, palettePart.source);
+  const trait = extractTrait(palettePart.description);
+
+  const handleClick = () => onAddPart?.(dragPayload);
 
   return (
     <div
       ref={drag}
-      className={`part-card draggable-part ${isDragging ? "dragging" : ""} ${compact ? "part-card-compact" : ""}`}
-      style={{ borderLeftColor: dragPayload.color, opacity: isDragging ? 0.5 : 1 }}
+      role="button"
+      tabIndex={0}
+      className={`part-tile ${isDragging ? "dragging" : ""}`}
+      style={{ borderColor: color, opacity: isDragging ? 0.55 : 1 }}
+      onClick={handleClick}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleClick()}
     >
-      <div className="part-card-header">
-        <span className={`type-badge ${badgeClass(palettePart.part_type)}`}>
-          {displayType(palettePart.part_type)}
-        </span>
-        <code className="part-id">{palettePart.part_id}</code>
-      </div>
-      <strong>{palettePart.label || palettePart.name}</strong>
-      {!compact && description && (
-        <p className="part-desc">
-          {description}
-          {palettePart.description?.length > 80 ? "…" : ""}
-        </p>
-      )}
-      {showAddButton && onAddPart && (
-        <button
-          type="button"
-          className="add-btn"
-          onClick={() => onAddPart(dragPayload)}
-        >
-          + Add to Circuit
-        </button>
-      )}
+      <span className="part-tile-type">{displayType(palettePart.part_type)}</span>
+      <code className="part-tile-id">{palettePart.part_id}</code>
+      <span className="part-tile-organism">{organism}</span>
+      <span className="part-tile-trait">{trait}</span>
     </div>
   );
 }

@@ -1,31 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, API_BASE } from "../api/client.js";
+import PageHero from "../components/PageHero.jsx";
+import SettingsModal from "../components/SettingsModal.jsx";
 import TraitRecommender from "../components/TraitRecommender.jsx";
-import PartsSidebar from "../components/PartsSidebar.jsx";
+import PartsLibrary from "../components/PartsLibrary.jsx";
 import CircuitCanvas from "../components/CircuitCanvas.jsx";
+import PreviewPanel from "../components/PreviewPanel.jsx";
 import PredictionPanel from "../components/PredictionPanel.jsx";
-import AdminPanel from "../components/AdminPanel.jsx";
 
 export default function CircuitBuilderPage() {
   const [circuit, setCircuit] = useState([]);
-  const [modelStatus, setModelStatus] = useState(null);
   const [predictResult, setPredictResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [partsRefreshKey, setPartsRefreshKey] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [backendOnline, setBackendOnline] = useState(null);
 
   useEffect(() => {
     api
       .get("/model/status")
-      .then(({ data }) => {
-        setModelStatus(data);
-        setBackendOnline(true);
-      })
-      .catch(() => {
-        setModelStatus({ model_loaded: false, mode: "offline", parts_count: 0 });
-        setBackendOnline(false);
-      });
+      .then(() => setBackendOnline(true))
+      .catch(() => setBackendOnline(false));
   }, [partsRefreshKey]);
 
   const onAddPart = useCallback((part) => {
@@ -60,10 +56,10 @@ export default function CircuitBuilderPage() {
     } catch (err) {
       const msg =
         err.code === "ERR_NETWORK"
-          ? `Network error — cannot reach backend at ${API_BASE}. Start: python -m uvicorn backend.api.main:app --reload --port 8000`
+          ? `Network error — cannot reach backend at ${API_BASE}.`
           : err.response?.data?.detail?.error ||
             err.message ||
-            "Prediction failed. Is the API running on port 8000?";
+            "Prediction failed.";
       setError(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setLoading(false);
@@ -72,50 +68,40 @@ export default function CircuitBuilderPage() {
 
   return (
     <div className="page circuit-builder-page">
-      <header className="page-header">
-        <p className="page-subtitle">
-          Drag DNA parts into the circuit, then predict expression.
-        </p>
-        {backendOnline === false && (
-          <p className="error backend-offline">
-            Backend offline at {API_BASE}. From <code>synbio-studio\venv</code> run:{" "}
-            <code>python -m uvicorn backend.api.main:app --reload --port 8000</code>
-          </p>
-        )}
-        {modelStatus && backendOnline && (
-          <div className={`status-badge ${modelStatus.model_loaded ? "ok" : "warn"}`}>
-            Backend connected · Model: {modelStatus.mode || "unknown"}
-            {modelStatus.parts_count
-              ? ` · ${modelStatus.parts_count.toLocaleString()} parts`
-              : ""}
-            {modelStatus.rbs_model_loaded ? " · RBS loaded" : ""}
-          </div>
-        )}
-      </header>
+      <PageHero onOpenSettings={() => setSettingsOpen(true)} />
 
+      {backendOnline === false && (
+        <p className="error backend-offline">
+          Backend offline at {API_BASE}. Run uvicorn from synbio-studio\venv.
+        </p>
+      )}
+
+      <PartsLibrary onAddPart={onAddPart} refreshKey={partsRefreshKey} />
       <TraitRecommender onAddPart={onAddPart} />
 
-      <main className="builder-layout">
-        <div className="builder-upper">
-          <PartsSidebar onAddPart={onAddPart} refreshKey={partsRefreshKey} />
+      <section className="circuit-preview-row">
+        <CircuitCanvas
+          circuit={circuit}
+          onAddPart={onAddPart}
+          onRemovePart={removePart}
+          onClear={clearCircuit}
+          onPredict={predict}
+          loading={loading}
+        />
+        <PreviewPanel circuit={circuit} />
+      </section>
 
-          <CircuitCanvas
-            circuit={circuit}
-            onAddPart={onAddPart}
-            onRemovePart={removePart}
-            onClear={clearCircuit}
-            onPredict={predict}
-            loading={loading}
-          />
-        </div>
+      <PredictionPanel
+        predictResult={predictResult}
+        error={error}
+        loading={loading}
+      />
 
-        <section className="prediction-panel prediction-panel-horizontal">
-          <h2>Prediction</h2>
-          <PredictionPanel predictResult={predictResult} error={error} />
-        </section>
-      </main>
-
-      <AdminPanel onPartsRefreshed={() => setPartsRefreshKey((k) => k + 1)} />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onPartsRefreshed={() => setPartsRefreshKey((k) => k + 1)}
+      />
     </div>
   );
 }

@@ -1,124 +1,111 @@
 import CircuitDiagram from "./CircuitDiagram.jsx";
-import ProteinViewer3D from "./ProteinViewer3D.jsx";
+import { aminoAcidColor } from "../utils/aminoAcidColors.js";
 
-function NullMetric({ label, missingPart }) {
+function Metric({ label, value, fallback = "—" }) {
   return (
-    <div className="metric null-metric">
-      <span>{label}</span>
-      <strong>—</strong>
-      <span className="requires-badge">Requires {missingPart}</span>
+    <div className="output-metric">
+      <span className="output-metric-label">{label}</span>
+      <strong className="output-metric-value">{value ?? fallback}</strong>
     </div>
   );
 }
 
-export default function PredictionPanel({ predictResult, error }) {
-  const prediction = predictResult?.prediction;
-  const genePart = predictResult?.parts_detail?.find(
-    (part) => part.part_type === "cds" || part.part_type === "gene",
+function ProteinSequence({ sequence }) {
+  if (!sequence) return <p className="hint">No protein sequence available.</p>;
+  const lines = [];
+  for (let i = 0; i < sequence.length; i += 10) {
+    lines.push(sequence.slice(i, i + 10));
+  }
+  return (
+    <div className="output-protein-seq">
+      {lines.map((line, lineIndex) => {
+        const offset = lineIndex * 10;
+        return (
+          <div key={offset} className="aa-line">
+            <span className="aa-line-number">{offset + 1}</span>
+            {line.split("").map((residue, index) => (
+              <span
+                key={`${offset}-${index}`}
+                className="aa-residue"
+                style={{ color: aminoAcidColor(residue) }}
+              >
+                {residue}
+              </span>
+            ))}
+          </div>
+        );
+      })}
+    </div>
   );
-  const aminoAcidSequence = predictResult?.amino_acid_sequence;
+}
 
-  if (error) return <p className="error">{error}</p>;
-  if (!prediction) {
-    return <p className="hint">Add a promoter and click Predict expression.</p>;
+export default function PredictionPanel({ predictResult, error, loading }) {
+  const prediction = predictResult?.prediction;
+  const aminoAcidSequence =
+    predictResult?.amino_acid_sequence ||
+    prediction?.protein_yield?.amino_acid_sequence?.replace("…", "") ||
+    "";
+
+  if (error) {
+    return (
+      <section className="output-panel">
+        <p className="error">{error}</p>
+      </section>
+    );
   }
 
-  const status = prediction.circuit_status;
-  const translationValue = prediction.translation_rate?.value ?? null;
+  if (loading) {
+    return (
+      <section className="output-panel">
+        <p className="hint">Running prediction…</p>
+      </section>
+    );
+  }
+
+  if (!prediction) {
+    return (
+      <section className="output-panel output-panel-empty">
+        <p className="hint">Build a circuit and click Predict to see output metrics.</p>
+      </section>
+    );
+  }
+
   const proteinYield =
     prediction.protein_yield?.relative_yield ?? prediction.expression_level ?? null;
+  const promoterRpu = prediction.promoter_strength?.rpu ?? null;
+  const translationRate = prediction.translation_rate?.value ?? null;
+  const proteinLength = prediction.protein_yield?.amino_acid_length ?? null;
 
   return (
-    <div className="prediction-result">
-      <div className="prediction-metrics-row">
-        {status && (
-          <div className="circuit-status-block metric-card">
-            <span
-              className={`status-badge ${status.is_complete ? "ok" : "warn-partial"}`}
-            >
-              {status.is_complete ? "Circuit Complete" : "Partial Circuit"}
-            </span>
-            {!status.is_complete && status.warnings?.length > 0 && (
-              <ul className="warning-list">
-                {status.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {proteinYield != null ? (
-          <div className="metric metric-card">
-            <span>Protein yield (relative)</span>
-            <strong>{proteinYield}</strong>
-            {prediction.confidence_interval && (
-              <small>
-                CI: {prediction.confidence_interval[0]} – {prediction.confidence_interval[1]}
-              </small>
-            )}
-          </div>
-        ) : (
-          <div className="metric-card">
-            <NullMetric label="Protein yield (relative)" missingPart="gene" />
-          </div>
-        )}
-
-        {prediction.promoter_strength?.rpu != null ? (
-          <div className="metric metric-card">
-            <span>Promoter strength</span>
-            <strong>{prediction.promoter_strength.rpu} RPU</strong>
-          </div>
-        ) : (
-          <div className="metric-card">
-            <NullMetric label="Promoter strength" missingPart="promoter" />
-          </div>
-        )}
-
-        {translationValue != null ? (
-          <div className="metric metric-card">
-            <span>Translation rate</span>
-            <strong>
-              {translationValue} ({prediction.translation_rate?.model || "model"})
-            </strong>
-          </div>
-        ) : (
-          <div className="metric-card">
-            <NullMetric label="Translation rate" missingPart="RBS" />
-          </div>
-        )}
-
-        {prediction.protein_yield?.amino_acid_length != null && (
-          <div className="metric metric-card">
-            <span>Protein length</span>
-            <strong>{prediction.protein_yield.amino_acid_length} aa</strong>
-          </div>
-        )}
-
-        <div className="metric metric-card">
-          <span>Model</span>
-          <strong>{prediction.model}</strong>
-        </div>
+    <section className="output-panel">
+      <div className="output-metrics-row">
+        <Metric label="PROTEIN YIELD" value={proteinYield} />
+        <Metric
+          label="PROMOTER STRENGTH"
+          value={promoterRpu != null ? `${promoterRpu} RPU` : null}
+        />
+        <Metric label="TRANSLATION RATE" value={translationRate} />
+        <Metric
+          label="PROTEIN LENGTH"
+          value={proteinLength != null ? `${proteinLength} aa` : null}
+        />
+        <Metric label="MODEL" value={prediction.model} />
       </div>
 
-      {prediction.protein_yield?.note && (
-        <p className="hint prediction-note">{prediction.protein_yield.note}</p>
-      )}
-
-      <div className="prediction-visuals">
-        {genePart && aminoAcidSequence && (
-          <ProteinViewer3D
-            aminoAcidSequence={aminoAcidSequence}
-            genePart={genePart}
-          />
-        )}
-
+      <div className="output-circuit-map">
+        <h3 className="output-subtitle">CIRCUIT MAP</h3>
         <CircuitDiagram
           circuitSvg={predictResult?.circuit_svg}
           partIds={predictResult?.parts}
           parts={predictResult?.parts_detail}
+          showHelix={false}
         />
       </div>
-    </div>
+
+      <div className="output-protein-block">
+        <h3 className="output-subtitle">PROTEIN SEQUENCE</h3>
+        <ProteinSequence sequence={aminoAcidSequence} />
+      </div>
+    </section>
   );
 }
