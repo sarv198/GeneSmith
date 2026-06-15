@@ -741,6 +741,7 @@ def list_parts(
     type: str | None = Query(default=None, alias="type"),
     search: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
     if PARTS_DF is None:
         raise HTTPException(
@@ -766,7 +767,7 @@ def list_parts(
         work = work[name_match | desc_match]
 
     total_matches = len(work)
-    limited = work.head(limit)
+    limited = work.iloc[offset : offset + limit]
     parts = limited[
         ["part_id", "part_type", "name", "description", "sequence"]
     ].to_dict(orient="records")

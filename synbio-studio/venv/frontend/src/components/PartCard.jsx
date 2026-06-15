@@ -2,7 +2,7 @@ import { useDrag } from "react-dnd";
 import { typeColor, partToPaletteItem } from "../api/client.js";
 import { badgeClass, displayType, PART_ITEM_TYPE } from "../utils/partHelpers.js";
 
-export default function PartCard({ part, onAddPart, showAddButton = true }) {
+export default function PartCard({ part, onAddPart, showAddButton = true, compact = false }) {
   const palettePart = part.label ? part : partToPaletteItem(part);
   const dragPayload = {
     part_id: palettePart.part_id,
@@ -25,7 +25,7 @@ export default function PartCard({ part, onAddPart, showAddButton = true }) {
   return (
     <div
       ref={drag}
-      className={`part-card draggable-part ${isDragging ? "dragging" : ""}`}
+      className={`part-card draggable-part ${isDragging ? "dragging" : ""} ${compact ? "part-card-compact" : ""}`}
       style={{ borderLeftColor: dragPayload.color, opacity: isDragging ? 0.5 : 1 }}
     >
       <div className="part-card-header">
@@ -35,7 +35,12 @@ export default function PartCard({ part, onAddPart, showAddButton = true }) {
         <code className="part-id">{palettePart.part_id}</code>
       </div>
       <strong>{palettePart.label || palettePart.name}</strong>
-      {description && <p className="part-desc">{description}{palettePart.description?.length > 80 ? "…" : ""}</p>}
+      {!compact && description && (
+        <p className="part-desc">
+          {description}
+          {palettePart.description?.length > 80 ? "…" : ""}
+        </p>
+      )}
       {showAddButton && onAddPart && (
         <button
           type="button"

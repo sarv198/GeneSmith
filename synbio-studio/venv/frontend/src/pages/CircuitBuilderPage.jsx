@@ -95,22 +95,24 @@ export default function CircuitBuilderPage() {
 
       <TraitRecommender onAddPart={onAddPart} />
 
-      <main className="layout">
-        <PartsSidebar onAddPart={onAddPart} refreshKey={partsRefreshKey} />
+      <main className="builder-layout">
+        <div className="builder-upper">
+          <PartsSidebar onAddPart={onAddPart} refreshKey={partsRefreshKey} />
 
-        <CircuitCanvas
-          circuit={circuit}
-          onAddPart={onAddPart}
-          onRemovePart={removePart}
-          onClear={clearCircuit}
-          onPredict={predict}
-          loading={loading}
-        />
+          <CircuitCanvas
+            circuit={circuit}
+            onAddPart={onAddPart}
+            onRemovePart={removePart}
+            onClear={clearCircuit}
+            onPredict={predict}
+            loading={loading}
+          />
+        </div>
 
-        <aside className="prediction-panel">
+        <section className="prediction-panel prediction-panel-horizontal">
           <h2>Prediction</h2>
           <PredictionPanel predictResult={predictResult} error={error} />
-        </aside>
+        </section>
       </main>
 
       <AdminPanel onPartsRefreshed={() => setPartsRefreshKey((k) => k + 1)} />

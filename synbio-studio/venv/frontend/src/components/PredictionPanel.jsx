@@ -30,93 +30,95 @@ export default function PredictionPanel({ predictResult, error }) {
 
   return (
     <div className="prediction-result">
-      {status && (
-        <div className="circuit-status-block">
-          <span
-            className={`status-badge ${status.is_complete ? "ok" : "warn-partial"}`}
-          >
-            {status.is_complete ? "Circuit Complete" : "Partial Circuit"}
-          </span>
-          {!status.is_complete && status.warnings?.length > 0 && (
-            <ul className="warning-list">
-              {status.warnings.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      <div className="prediction-metrics-row">
+        {status && (
+          <div className="circuit-status-block metric-card">
+            <span
+              className={`status-badge ${status.is_complete ? "ok" : "warn-partial"}`}
+            >
+              {status.is_complete ? "Circuit Complete" : "Partial Circuit"}
+            </span>
+            {!status.is_complete && status.warnings?.length > 0 && (
+              <ul className="warning-list">
+                {status.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
-      {proteinYield != null ? (
-        <div className="metric">
-          <span>Protein yield (relative)</span>
-          <strong>{proteinYield}</strong>
-          {prediction.confidence_interval && (
-            <small>
-              CI: {prediction.confidence_interval[0]} – {prediction.confidence_interval[1]}
-            </small>
-          )}
-        </div>
-      ) : (
-        <NullMetric label="Protein yield (relative)" missingPart="gene" />
-      )}
+        {proteinYield != null ? (
+          <div className="metric metric-card">
+            <span>Protein yield (relative)</span>
+            <strong>{proteinYield}</strong>
+            {prediction.confidence_interval && (
+              <small>
+                CI: {prediction.confidence_interval[0]} – {prediction.confidence_interval[1]}
+              </small>
+            )}
+          </div>
+        ) : (
+          <div className="metric-card">
+            <NullMetric label="Protein yield (relative)" missingPart="gene" />
+          </div>
+        )}
 
-      {prediction.promoter_strength?.rpu != null ? (
-        <div className="metric">
-          <span>Promoter strength</span>
-          <strong>{prediction.promoter_strength.rpu} RPU</strong>
-        </div>
-      ) : (
-        <NullMetric label="Promoter strength" missingPart="promoter" />
-      )}
+        {prediction.promoter_strength?.rpu != null ? (
+          <div className="metric metric-card">
+            <span>Promoter strength</span>
+            <strong>{prediction.promoter_strength.rpu} RPU</strong>
+          </div>
+        ) : (
+          <div className="metric-card">
+            <NullMetric label="Promoter strength" missingPart="promoter" />
+          </div>
+        )}
 
-      {translationValue != null ? (
-        <div className="metric">
-          <span>Translation rate</span>
-          <strong>
-            {translationValue} ({prediction.translation_rate?.model || "model"})
-          </strong>
-        </div>
-      ) : (
-        <NullMetric label="Translation rate" missingPart="RBS" />
-      )}
+        {translationValue != null ? (
+          <div className="metric metric-card">
+            <span>Translation rate</span>
+            <strong>
+              {translationValue} ({prediction.translation_rate?.model || "model"})
+            </strong>
+          </div>
+        ) : (
+          <div className="metric-card">
+            <NullMetric label="Translation rate" missingPart="RBS" />
+          </div>
+        )}
 
-      {prediction.protein_yield?.amino_acid_length != null && (
-        <>
-          <div className="metric">
+        {prediction.protein_yield?.amino_acid_length != null && (
+          <div className="metric metric-card">
             <span>Protein length</span>
             <strong>{prediction.protein_yield.amino_acid_length} aa</strong>
           </div>
-          {prediction.protein_yield.amino_acid_sequence && (
-            <div className="metric seq-metric">
-              <span>Amino acid sequence</span>
-              <code>{prediction.protein_yield.amino_acid_sequence}</code>
-            </div>
-          )}
-        </>
-      )}
+        )}
 
-      <div className="metric">
-        <span>Model</span>
-        <strong>{prediction.model}</strong>
+        <div className="metric metric-card">
+          <span>Model</span>
+          <strong>{prediction.model}</strong>
+        </div>
       </div>
 
       {prediction.protein_yield?.note && (
-        <p className="hint">{prediction.protein_yield.note}</p>
+        <p className="hint prediction-note">{prediction.protein_yield.note}</p>
       )}
 
-      {genePart && aminoAcidSequence && (
-        <ProteinViewer3D
-          aminoAcidSequence={aminoAcidSequence}
-          genePart={genePart}
+      <div className="prediction-visuals">
+        {genePart && aminoAcidSequence && (
+          <ProteinViewer3D
+            aminoAcidSequence={aminoAcidSequence}
+            genePart={genePart}
+          />
+        )}
+
+        <CircuitDiagram
+          circuitSvg={predictResult?.circuit_svg}
+          partIds={predictResult?.parts}
+          parts={predictResult?.parts_detail}
         />
-      )}
-
-      <CircuitDiagram
-        circuitSvg={predictResult?.circuit_svg}
-        partIds={predictResult?.parts}
-        parts={predictResult?.parts_detail}
-      />
+      </div>
     </div>
   );
 }

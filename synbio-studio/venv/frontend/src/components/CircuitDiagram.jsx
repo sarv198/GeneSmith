@@ -48,7 +48,7 @@ export default function CircuitDiagram({ circuitSvg, partIds, parts }) {
     const container = document.getElementById("circuit-helix");
     if (!container) return undefined;
 
-    const viewer = $3Dmol.createViewer(container, { backgroundColor: "#0f172a" });
+    const viewer = $3Dmol.createViewer(container, { backgroundColor: "#1a0a2e" });
     viewerRef.current = viewer;
 
     const assembled = dnaStructure.assembled_sequence;
@@ -118,7 +118,7 @@ export default function CircuitDiagram({ circuitSvg, partIds, parts }) {
         <div
           id="circuit-helix"
           className="viewer-canvas"
-          style={{ width: "100%", height: 280, borderRadius: 12 }}
+          style={{ width: "100%", height: 220, borderRadius: 12 }}
         />
         {dnaStructure?.trimmed && (
           <p className="viewer-hint">

@@ -44,7 +44,7 @@ export default function CircuitCanvas({
   return (
     <section
       ref={drop}
-      className={`canvas ${isOver ? "drag-over" : ""} ${circuit.length === 0 ? "empty" : ""}`}
+      className={`canvas circuit-canvas ${isOver ? "drag-over" : ""} ${circuit.length === 0 ? "empty" : ""}`}
     >
       <div className="canvas-header">
         <h2>Circuit</h2>
@@ -73,35 +73,37 @@ export default function CircuitCanvas({
       {circuit.length === 0 ? (
         <p className="drop-hint">Drop parts here to build your construct</p>
       ) : (
-        <ol className="circuit-list">
-          {circuit.map((part, i) => (
-            <li key={part.uid} className="circuit-item">
-              <span className="index">{i + 1}</span>
-              <button
-                type="button"
-                className="circuit-part circuit-part-button"
-                style={{ borderColor: part.color }}
-                onClick={() => setSelectedPart(part)}
-              >
-                <span className="part-type">{part.part_type}</span>
-                <strong>{part.label || part.name}</strong>
-                <span className="seq-preview">
-                  {part.sequence.slice(0, 40)}
-                  {part.sequence.length > 40 ? "…" : ""}
-                </span>
-              </button>
-              <button type="button" className="remove" onClick={() => onRemovePart(part.uid)}>
-                ×
-              </button>
-            </li>
-          ))}
-        </ol>
-      )}
+        <div className="circuit-scroll">
+          <ol className="circuit-list">
+            {circuit.map((part, i) => (
+              <li key={part.uid} className="circuit-item">
+                <span className="index">{i + 1}</span>
+                <button
+                  type="button"
+                  className="circuit-part circuit-part-button"
+                  style={{ borderColor: part.color }}
+                  onClick={() => setSelectedPart(part)}
+                >
+                  <span className="part-type">{part.part_type}</span>
+                  <strong>{part.label || part.name}</strong>
+                  <span className="seq-preview">
+                    {part.sequence.slice(0, 40)}
+                    {part.sequence.length > 40 ? "…" : ""}
+                  </span>
+                </button>
+                <button type="button" className="remove" onClick={() => onRemovePart(part.uid)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ol>
 
-      {fullSequence && (
-        <div className="full-sequence">
-          <h3>Full sequence ({fullSequence.length} bp)</h3>
-          <code>{fullSequence}</code>
+          {fullSequence && (
+            <div className="full-sequence">
+              <h3>Full sequence ({fullSequence.length} bp)</h3>
+              <code>{fullSequence}</code>
+            </div>
+          )}
         </div>
       )}
 

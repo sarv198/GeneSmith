@@ -64,7 +64,7 @@ export default function ProteinViewer3D({ aminoAcidSequence, genePart }) {
 
   useEffect(() => {
     if (!pdbUrl) return undefined;
-    const stage = new NGL.Stage(viewportId, { backgroundColor: "#0f172a" });
+    const stage = new NGL.Stage(viewportId, { backgroundColor: "#1a0a2e" });
     stage
       .loadFile(pdbUrl, { defaultRepresentation: false })
       .then((component) => {
@@ -77,6 +77,7 @@ export default function ProteinViewer3D({ aminoAcidSequence, genePart }) {
           colorScheme: "electrostatic",
         });
         component.autoView();
+        stage.handleResize();
       })
       .catch(() => {});
     return () => stage.dispose();
@@ -95,7 +96,7 @@ export default function ProteinViewer3D({ aminoAcidSequence, genePart }) {
         <div
           id={viewportId}
           className="viewer-canvas"
-          style={{ width: "100%", height: 280, borderRadius: 12 }}
+          style={{ width: "100%", height: 220, borderRadius: 12 }}
         />
       )}
 

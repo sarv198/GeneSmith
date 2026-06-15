@@ -13,6 +13,11 @@
   --accent-dim: #7e22ce;
   --nav-dark: #0d0618;
   --nav-light: #5b21b6;
+  --part-slot-height: 4.25rem;
+  --parts-gap: 0.5rem;
+  --parts-list-block-height: calc(6 * var(--part-slot-height) + 5 * var(--parts-gap));
+  --library-chrome-height: 10.25rem;
+  --upper-panel-height: calc(var(--library-chrome-height) + var(--parts-list-block-height));
 }
 
 * {
@@ -42,10 +47,10 @@ body {
 
 .app-content {
   flex: 1;
-  max-width: 1400px;
   width: 100%;
-  margin: 0 auto;
-  padding: 1.5rem;
+  max-width: none;
+  margin: 0;
+  padding: 1rem 1.5rem 1.5rem;
 }
 
 /* ── Navbar ── */
@@ -182,6 +187,170 @@ header p {
   border: 1px solid var(--border);
 }
 
+.builder-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.builder-upper {
+  display: grid;
+  grid-template-columns: minmax(300px, 36%) 1fr;
+  gap: 1rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+.builder-upper .palette,
+.builder-upper .circuit-canvas {
+  height: var(--upper-panel-height);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.parts-library {
+  padding-bottom: 0.75rem;
+}
+
+.parts-carousel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.parts-count-hint {
+  margin: 0 0 0.5rem;
+}
+
+.parts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--parts-gap);
+  height: var(--parts-list-block-height);
+  max-height: var(--parts-list-block-height);
+  overflow: hidden;
+}
+
+.part-card-compact {
+  height: var(--part-slot-height);
+  margin-bottom: 0;
+  padding: 0.45rem 0.65rem;
+  overflow: hidden;
+}
+
+.part-card-compact .add-btn {
+  margin-top: 0.2rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.7rem;
+}
+
+.part-card-compact strong {
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.parts-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.pager-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pager-btn-next {
+  margin-left: auto;
+}
+
+.pager-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  flex: 1;
+  text-align: center;
+}
+
+.circuit-canvas .circuit-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.circuit-canvas .drop-hint {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  margin: 0;
+}
+
+.circuit-canvas .canvas-header,
+.circuit-canvas .circuit-checklist {
+  flex-shrink: 0;
+}
+
+.prediction-panel-horizontal {
+  width: 100%;
+  overflow: visible;
+}
+
+.prediction-panel-horizontal .prediction-result {
+  width: 100%;
+}
+
+.prediction-metrics-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.metric-card {
+  flex: 1 1 140px;
+  min-width: 120px;
+  background: rgba(10, 5, 20, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+}
+
+.metric-card .metric {
+  margin-bottom: 0;
+}
+
+.prediction-note {
+  margin: 0 0 1rem;
+}
+
+.prediction-visuals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.prediction-visuals > * {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 240px 1fr 260px;
@@ -267,7 +436,6 @@ header p {
 .drop-hint {
   text-align: center;
   color: var(--muted);
-  padding: 4rem 1rem;
   margin: 0;
 }
 
@@ -402,6 +570,16 @@ button.remove {
 }
 
 @media (max-width: 900px) {
+  .builder-upper {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-upper .palette,
+  .builder-upper .circuit-canvas {
+    height: auto;
+    max-height: none;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
@@ -656,12 +834,13 @@ button.remove {
 }
 
 .viewer-panel {
-  background: #ffffff;
-  color: #0f172a;
+  background: rgba(22, 10, 40, 0.85);
+  color: var(--text);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   padding: 1rem;
-  margin-top: 1rem;
+  overflow: hidden;
 }
 
 .viewer-panel h3 {
@@ -673,13 +852,27 @@ button.remove {
 .viewer-hint,
 .viewer-loading {
   margin: 0 0 0.75rem;
-  color: #64748b;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 
 .viewer-canvas {
-  background: #0f172a;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint;
+  background: #1a0a2e;
   margin-bottom: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.viewer-canvas canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .viewer-placeholder {
@@ -689,9 +882,10 @@ button.remove {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: #f1f5f9;
+  background: rgba(10, 5, 20, 0.55);
   border-radius: 12px;
   margin-bottom: 0.75rem;
+  border: 1px solid var(--border);
 }
 
 .viewer-meta {
@@ -708,15 +902,15 @@ button.remove {
 }
 
 .seq-snippet {
-  color: #64748b;
+  color: var(--muted);
   width: 100%;
 }
 
 .aa-sequence-block {
-  max-height: 180px;
+  max-height: 140px;
   overflow: auto;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: rgba(10, 5, 20, 0.55);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.5rem;
   font-family: ui-monospace, monospace;
@@ -739,12 +933,21 @@ button.remove {
 }
 
 .circuit-diagram {
-  margin-top: 1rem;
+  background: rgba(22, 10, 40, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  overflow: hidden;
 }
 
 .circuit-map-section,
 .circuit-helix-section {
   margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.circuit-helix-section:last-child {
+  margin-bottom: 0;
 }
 
 .section-header {
@@ -762,10 +965,11 @@ button.remove {
 
 .circuit-svg-wrap {
   overflow-x: auto;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: rgba(10, 5, 20, 0.55);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.5rem;
+  max-height: 200px;
 }
 
 .circuit-legend {
@@ -787,25 +991,7 @@ button.remove {
 }
 
 .prediction-panel {
-  overflow-y: auto;
-  max-height: 85vh;
+  overflow: visible;
 }
 
-@media (min-width: 1100px) {
-  .layout {
-    grid-template-columns: 240px 1fr 360px;
-  }
-}
-
-@media (min-width: 1280px) {
-  .layout {
-    grid-template-columns: 260px 1fr;
-    grid-template-rows: minmax(420px, auto) auto;
-  }
-
-  .prediction-panel {
-    grid-column: 1 / -1;
-    max-height: none;
-  }
-}
-
+/* legacy layout helper — unused on builder page */
