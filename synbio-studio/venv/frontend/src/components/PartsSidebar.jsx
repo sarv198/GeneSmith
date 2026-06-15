@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, partToPaletteItem } from "../api/client.js";
+import { api, API_BASE, partToPaletteItem } from "../api/client.js";
 import { PART_LIBRARY } from "../data/parts.js";
 import PartCard from "./PartCard.jsx";
 
@@ -30,7 +30,7 @@ export default function PartsSidebar({ onAddPart, refreshKey = 0 }) {
       setParts(mapped.length ? mapped : PART_LIBRARY);
       setTotalMatches(data.total_matches ?? mapped.length);
       setOffline(false);
-    } catch {
+    } catch (err) {
       setParts(PART_LIBRARY);
       setTotalMatches(PART_LIBRARY.length);
       setOffline(true);
@@ -55,7 +55,11 @@ export default function PartsSidebar({ onAddPart, refreshKey = 0 }) {
   return (
     <aside className="palette">
       <h2>Parts library</h2>
-      {offline && <p className="warn-text">Using offline parts library</p>}
+      {offline && (
+        <p className="warn-text">
+          Backend unreachable at {API_BASE} — showing 7 offline parts. Start API on port 8000.
+        </p>
+      )}
       <input
         className="search-input"
         type="text"

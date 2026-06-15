@@ -1,3 +1,6 @@
+import CircuitDiagram from "./CircuitDiagram.jsx";
+import ProteinViewer3D from "./ProteinViewer3D.jsx";
+
 function NullMetric({ label, missingPart }) {
   return (
     <div className="metric null-metric">
@@ -8,7 +11,13 @@ function NullMetric({ label, missingPart }) {
   );
 }
 
-export default function PredictionPanel({ prediction, error }) {
+export default function PredictionPanel({ predictResult, error }) {
+  const prediction = predictResult?.prediction;
+  const genePart = predictResult?.parts_detail?.find(
+    (part) => part.part_type === "cds" || part.part_type === "gene",
+  );
+  const aminoAcidSequence = predictResult?.amino_acid_sequence;
+
   if (error) return <p className="error">{error}</p>;
   if (!prediction) {
     return <p className="hint">Add a promoter and click Predict expression.</p>;
@@ -95,6 +104,19 @@ export default function PredictionPanel({ prediction, error }) {
       {prediction.protein_yield?.note && (
         <p className="hint">{prediction.protein_yield.note}</p>
       )}
+
+      {genePart && aminoAcidSequence && (
+        <ProteinViewer3D
+          aminoAcidSequence={aminoAcidSequence}
+          genePart={genePart}
+        />
+      )}
+
+      <CircuitDiagram
+        circuitSvg={predictResult?.circuit_svg}
+        partIds={predictResult?.parts}
+        parts={predictResult?.parts_detail}
+      />
     </div>
   );
 }

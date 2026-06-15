@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "../api/client.js";
+import { api, API_BASE } from "../api/client.js";
 import PartCard from "./PartCard.jsx";
 
 export default function TraitRecommender({ onAddPart }) {
@@ -15,8 +15,10 @@ export default function TraitRecommender({ onAddPart }) {
     try {
       const { data } = await api.post("/recommend", { trait: trait.trim() });
       setParts(data.recommended_parts || []);
-    } catch {
-      setError("Could not fetch recommendations — check that the backend is running");
+    } catch (err) {
+      setError(
+        `Could not fetch recommendations — backend at ${API_BASE} unreachable (is uvicorn running on port 8000?)`,
+      );
       setParts([]);
     } finally {
       setLoading(false);

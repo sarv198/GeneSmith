@@ -109,50 +109,240 @@ def _is_present(value: Any) -> bool:
     return text != "" and text.lower() != "nan"
 
 
-def _extract_alphafold_id(uniprot_payload: dict[str, Any]) -> str | None:
-    for xref in uniprot_payload.get("uniProtKBCrossReferences", []):
-        if xref.get("database") != "AlphaFoldDB":
-            continue
-        for prop in xref.get("properties", []):
-            if prop.get("key") == "id" and _is_present(prop.get("value")):
-                return str(prop["value"]).strip()
-        if _is_present(xref.get("id")):
-            return str(xref["id"]).strip()
-    return None
-
-
-def _fetch_alphafold_pdb_url(uniprot_id: str) -> tuple[str | None, str | None]:
-    url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.json"
-    response = requests.get(url, timeout=30)
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "error": f"UniProt lookup failed for {uniprot_id}",
-                "detail": f"HTTP {response.status_code}",
-            },
-        )
-    payload = response.json()
-    if payload.get("primaryAccession") != uniprot_id:
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "error": f"UniProt accession mismatch for {uniprot_id}",
-                "detail": f"Got {payload.get('primaryAccession')}",
-            },
-        )
-    alphafold_id = _extract_alphafold_id(payload)
-    if not alphafold_id:
-        return None, None
-    pdb_url = f"https://alphafold.ebi.ac.uk/files/AF-{alphafold_id}-F1-model_v4.pdb"
-    return alphafold_id, pdb_url
-
-
 def _load_circuit_model() -> dict[str, Any] | None:
     if not Path(CIRCUIT_MODEL_PATH).exists():
         return None
-    with open(CIRCUIT_MODEL_PATH, "rb") as handle:
-        return pickle.load(handle)
+    try:
+        with open(CIRCUIT_MODEL_PATH, "rb") as handle:
+            return pickle.load(handle)
+    except Exception as exc:
+        print(f"WARNING: Could not load circuit model ({exc})")
+        return None
+
+
+def _lookup_part_row(part_id: str) -> pd.Series | None:
+    if PARTS_DF is None:
+        return None
+    matches = PARTS_DF[PARTS_DF["part_id"].astype(str) == str(part_id)]
+    if matches.empty:
+        return None
+    return matches.iloc[0]
+
+
+def _part_detail_from_request(part: dict[str, Any]) -> dict[str, Any]:
+    row = _lookup_part_row(str(part.get("part_id", "")))
+    if row is not None:
+        return {
+            "part_id": str(row["part_id"]),
+            "part_type": str(row.get("part_type", part.get("part_type", ""))),
+            "name": str(row.get("name", part.get("part_id", ""))),
+            "sequence": str(row.get("sequence", part.get("sequence", ""))),
+        }
+    return {
+        "part_id": str(part.get("part_id", "")),
+        "part_type": str(part.get("part_type", "")),
+        "name": str(part.get("part_id", "")),
+        "sequence": str(part.get("sequence", "")),
+    }
+
+
+def _build_circuit_svg(parts_detail: list[dict[str, Any]]) -> str:
+    x = 10
+    elements: list[str] = []
+    for part in parts_detail:
+        part_type = _normalize_type(str(part.get("part_type", "")))
+        color = PART_TYPE_COLORS.get(part_type, "#cccccc")
+        width = 90
+        label = part_type[:3].upper()
+        elements.append(
+            f'<rect x="{x}" y="30" width="{width}" height="36" fill="{color}" '
+            f'stroke="#334155" rx="6"/>'
+        )
+        elements.append(
+            f'<text x="{x + width / 2}" y="52" text-anchor="middle" '
+            f'font-family="monospace" font-size="11" fill="#1e293b">{label}</text>'
+        )
+        x += width + 8
+    svg_width = max(x + 10, 120)
+    body = "\n  ".join(elements)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width}" height="80" '
+        f'viewBox="0 0 {svg_width} 80">\n  {body}\n</svg>'
+    )
+
+
+def _search_uniprot_by_name(part_name: str) -> str | None:
+    try:
+        query = requests.utils.quote(part_name)
+        url = (
+            "https://rest.uniprot.org/uniprotkb/search"
+            f"?query={query}&format=json&size=1"
+        )
+        response = requests.get(url, timeout=STRUCTURE_API_TIMEOUT)
+        if response.status_code != 200:
+            print(f"UniProt search failed for {part_name!r}: HTTP {response.status_code}")
+            return None
+        results = response.json().get("results", [])
+        if not results:
+            return None
+        return results[0].get("primaryAccession")
+    except Exception as exc:
+        print(f"UniProt search error for {part_name!r}: {exc}")
+        return None
+
+
+def _fetch_alphafold_pdb_url(uniprot_id: str) -> str | None:
+    try:
+        url = f"https://alphafold.ebi.ac.uk/api/prediction/{uniprot_id}"
+        response = requests.get(url, timeout=STRUCTURE_API_TIMEOUT)
+        if response.status_code == 404:
+            return None
+        if response.status_code != 200:
+            print(f"AlphaFold lookup failed for {uniprot_id}: HTTP {response.status_code}")
+            return None
+        payload = response.json()
+        if isinstance(payload, list) and payload:
+            return payload[0].get("pdbUrl")
+        if isinstance(payload, dict):
+            return payload.get("pdbUrl")
+        return None
+    except Exception as exc:
+        print(f"AlphaFold lookup error for {uniprot_id}: {exc}")
+        return None
+
+
+def _search_rcsb_pdb(part_name: str) -> str | None:
+    try:
+        body = {
+            "query": {
+                "type": "terminal",
+                "service": "text",
+                "parameters": {"value": part_name},
+            },
+            "return_type": "entry",
+            "request_options": {"paginate": {"start": 0, "rows": 1}},
+        }
+        response = requests.post(
+            "https://search.rcsb.org/rcsbsearch/v2/query",
+            json=body,
+            timeout=STRUCTURE_API_TIMEOUT,
+        )
+        if response.status_code != 200:
+            print(f"RCSB search failed for {part_name!r}: HTTP {response.status_code}")
+            return None
+        result_set = response.json().get("result_set", [])
+        if not result_set:
+            return None
+        identifier = result_set[0].get("identifier")
+        if not identifier:
+            return None
+        return f"https://files.rcsb.org/download/{identifier}.pdb"
+    except Exception as exc:
+        print(f"RCSB search error for {part_name!r}: {exc}")
+        return None
+
+
+def _resolve_protein_structure(
+    part_name: str,
+    dna_sequence: str,
+    row: pd.Series | None = None,
+) -> tuple[str | None, str | None, str]:
+    uniprot_id = _search_uniprot_by_name(part_name)
+    if not uniprot_id and row is not None and _is_present(row.get("uniprot_id")):
+        uniprot_id = str(row["uniprot_id"]).strip()
+
+    pdb_url: str | None = None
+    if uniprot_id:
+        pdb_url = _fetch_alphafold_pdb_url(uniprot_id)
+
+    if not pdb_url and row is not None and _is_present(row.get("pdb_id")):
+        pdb_url = f"https://files.rcsb.org/download/{str(row['pdb_id']).strip()}.pdb"
+
+    if not pdb_url:
+        search_name = part_name
+        if row is not None:
+            description = str(row.get("description", ""))
+            if description and not part_name.lower().startswith("bba_"):
+                search_name = description
+            elif description:
+                search_name = description[:80]
+        pdb_url = _search_rcsb_pdb(search_name)
+
+    amino_acids = _translate_dna(dna_sequence) if dna_sequence else ""
+    sequence = amino_acids if amino_acids else dna_sequence
+    return pdb_url, uniprot_id, sequence
+
+
+def _part_color(part_type: str) -> str:
+    return PART_TYPE_COLORS.get(_normalize_type(part_type), "#cccccc")
+
+
+def _clip_part_regions(
+    parts_layout: list[dict[str, Any]],
+    full_length: int,
+) -> list[dict[str, Any]]:
+    """Map part spans onto a trimmed 300bp display (150 + ... + 150)."""
+    if full_length <= 300:
+        return parts_layout
+
+    display_regions = [(0, 150), (full_length - 150, full_length)]
+    mapped: list[dict[str, Any]] = []
+    display_offset = 0
+    for region_start, region_end in display_regions:
+        if display_offset == 150:
+            display_offset += 3  # ellipsis
+        for part in parts_layout:
+            overlap_start = max(part["start"], region_start)
+            overlap_end = min(part["end"], region_end)
+            if overlap_start >= overlap_end:
+                continue
+            mapped.append(
+                {
+                    "part_id": part["part_id"],
+                    "part_type": part["part_type"],
+                    "start": display_offset + (overlap_start - region_start),
+                    "end": display_offset + (overlap_end - region_start),
+                    "color": part["color"],
+                }
+            )
+        display_offset += region_end - region_start
+    return mapped
+
+
+def _assemble_dna_structure(part_ids: list[str]) -> dict[str, Any]:
+    full_sequence = ""
+    parts_layout: list[dict[str, Any]] = []
+    for part_id in part_ids:
+        row = _lookup_part_row(part_id)
+        sequence = str(row["sequence"]) if row is not None else ""
+        part_type = str(row.get("part_type", "unknown")) if row is not None else "unknown"
+        start = len(full_sequence)
+        full_sequence += sequence
+        parts_layout.append(
+            {
+                "part_id": part_id,
+                "part_type": part_type,
+                "start": start,
+                "end": len(full_sequence),
+                "color": _part_color(part_type),
+            }
+        )
+
+    total_length = len(full_sequence)
+    trimmed = total_length > 300
+    if trimmed:
+        assembled_sequence = f"{full_sequence[:150]}...{full_sequence[-150:]}"
+        parts_map = _clip_part_regions(parts_layout, total_length)
+    else:
+        assembled_sequence = full_sequence
+        parts_map = parts_layout
+
+    return {
+        "assembled_sequence": assembled_sequence,
+        "total_length": total_length,
+        "trimmed": trimmed,
+        "parts_map": parts_map,
+    }
 
 
 PARTS_DF: pd.DataFrame | None = _load_parts_df()
@@ -182,6 +372,21 @@ class YieldRequest(BaseModel):
 
 class RetrainRequest(BaseModel):
     models: list[str] | None = None
+
+
+class DnaStructureRequest(BaseModel):
+    part_ids: list[str]
+
+
+PART_TYPE_COLORS = {
+    "promoter": "#ff9999",
+    "rbs": "#99ccff",
+    "cds": "#99ff99",
+    "gene": "#99ff99",
+    "terminator": "#ffcc99",
+}
+
+STRUCTURE_API_TIMEOUT = 10
 
 
 def _normalize_type(part_type: str) -> str:
@@ -583,42 +788,46 @@ def get_part_structure(part_id: str) -> dict[str, Any]:
             },
         )
 
-    matches = PARTS_DF[PARTS_DF["part_id"] == part_id]
-    if matches.empty:
-        raise HTTPException(
-            status_code=404,
-            detail={"error": f"Part not found: {part_id}"},
+    row = _lookup_part_row(part_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"error": "Part not found"})
+
+    part_type = str(row.get("part_type", ""))
+    normalized = _normalize_type(part_type)
+    dna_sequence = str(row.get("sequence", ""))
+    part_name = str(row.get("name", part_id))
+
+    if normalized == "cds":
+        pdb_url, uniprot_id, sequence = _resolve_protein_structure(
+            part_name, dna_sequence, row
         )
-
-    row = matches.iloc[0]
-    sequence = str(row.get("sequence", ""))
-    uniprot_id = row.get("uniprot_id")
-    pdb_id = row.get("pdb_id")
-
-    if not _is_present(uniprot_id):
         return {
             "part_id": part_id,
-            "part_type": str(row.get("part_type", "")),
-            "render_mode": "dna_helix",
+            "part_type": part_type,
+            "render_mode": "protein",
+            "pdb_url": pdb_url,
+            "uniprot_id": uniprot_id,
             "sequence": sequence,
-            "uniprot_id": None,
-            "pdb_id": str(pdb_id).strip() if _is_present(pdb_id) else None,
-            "alphafold_id": None,
-            "pdb_url": None,
         }
 
-    uniprot_id = str(uniprot_id).strip()
-    alphafold_id, pdb_url = _fetch_alphafold_pdb_url(uniprot_id)
     return {
         "part_id": part_id,
-        "part_type": str(row.get("part_type", "")),
-        "render_mode": "alphafold",
-        "sequence": sequence,
-        "uniprot_id": uniprot_id,
-        "pdb_id": str(pdb_id).strip() if _is_present(pdb_id) else None,
-        "alphafold_id": alphafold_id,
-        "pdb_url": pdb_url,
+        "part_type": part_type,
+        "render_mode": "dna_helix",
+        "pdb_url": None,
+        "uniprot_id": None,
+        "sequence": dna_sequence,
     }
+
+
+@app.post("/circuits/dna-structure")
+def circuit_dna_structure(body: DnaStructureRequest) -> dict[str, Any]:
+    if PARTS_DF is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "Parts library not loaded. Run combine_datasets.py first."},
+        )
+    return _assemble_dna_structure(body.part_ids)
 
 
 @app.post("/recommend")
@@ -631,7 +840,19 @@ def recommend(body: RecommendRequest) -> dict[str, Any]:
 def predict_circuit(body: PredictRequest) -> dict[str, Any]:
     parts = [part.model_dump() for part in body.parts]
     prediction = _predict_with_validation(parts)
-    return {"parts": parts, "prediction": prediction}
+    parts_detail = [_part_detail_from_request(part) for part in parts]
+    circuit_svg = _build_circuit_svg(parts_detail)
+    amino_acid_sequence: str | None = None
+    cds_part = _find_part(parts, "cds")
+    if cds_part:
+        amino_acid_sequence = _translate_dna(str(cds_part.get("sequence", "")))
+    return {
+        "parts": [part["part_id"] for part in parts],
+        "parts_detail": parts_detail,
+        "circuit_svg": circuit_svg,
+        "amino_acid_sequence": amino_acid_sequence,
+        "prediction": prediction,
+    }
 
 
 @app.post("/circuits/yield")

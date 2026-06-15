@@ -77,19 +77,27 @@ class ExpressionPredictor:
         self.mode = "heuristic"
 
         if os.path.exists(PROMOTER_MODEL_PATH):
-            with open(PROMOTER_MODEL_PATH, "rb") as handle:
-                data = pickle.load(handle)
-            self.promoter_model = data["model"]
-            self.promoter_scaler = data["scaler"]
-            self.promoter_feature_names = list(data["feature_names"])
-            self.mode = "GBM-v1"
+            try:
+                with open(PROMOTER_MODEL_PATH, "rb") as handle:
+                    data = pickle.load(handle)
+                self.promoter_model = data["model"]
+                self.promoter_scaler = data["scaler"]
+                self.promoter_feature_names = list(data["feature_names"])
+                self.mode = "GBM-v1"
+            except Exception as exc:
+                print(
+                    f"WARNING: Could not load promoter model ({exc}) — using heuristic fallback"
+                )
 
         if os.path.exists(RBS_MODEL_PATH):
-            with open(RBS_MODEL_PATH, "rb") as handle:
-                data = pickle.load(handle)
-            self.rbs_model = data["model"]
-            self.rbs_scaler = data["scaler"]
-            self.rbs_feature_names = list(data["feature_names"])
+            try:
+                with open(RBS_MODEL_PATH, "rb") as handle:
+                    data = pickle.load(handle)
+                self.rbs_model = data["model"]
+                self.rbs_scaler = data["scaler"]
+                self.rbs_feature_names = list(data["feature_names"])
+            except Exception as exc:
+                print(f"WARNING: Could not load RBS model ({exc}) — using heuristic fallback")
 
         if self.promoter_model is None:
             print(

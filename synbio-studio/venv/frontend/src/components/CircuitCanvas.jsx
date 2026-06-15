@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useDrop } from "react-dnd";
 import { PART_ITEM_TYPE } from "../utils/partHelpers.js";
+import PartViewer3D from "./PartViewer3D.jsx";
 
 function hasType(circuit, type) {
   const aliases = type === "cds" ? ["cds", "gene"] : [type];
@@ -14,6 +16,8 @@ export default function CircuitCanvas({
   onPredict,
   loading,
 }) {
+  const [selectedPart, setSelectedPart] = useState(null);
+
   const [{ isOver }, drop] = useDrop({
     accept: PART_ITEM_TYPE,
     drop: (item) => onAddPart({ ...item, uid: crypto.randomUUID() }),
@@ -27,6 +31,15 @@ export default function CircuitCanvas({
     hasType(circuit, "terminator");
 
   const fullSequence = circuit.map((p) => p.sequence).join("");
+
+  useEffect(() => {
+    if (!selectedPart) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setSelectedPart(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedPart]);
 
   return (
     <section
@@ -64,14 +77,19 @@ export default function CircuitCanvas({
           {circuit.map((part, i) => (
             <li key={part.uid} className="circuit-item">
               <span className="index">{i + 1}</span>
-              <div className="circuit-part" style={{ borderColor: part.color }}>
+              <button
+                type="button"
+                className="circuit-part circuit-part-button"
+                style={{ borderColor: part.color }}
+                onClick={() => setSelectedPart(part)}
+              >
                 <span className="part-type">{part.part_type}</span>
                 <strong>{part.label || part.name}</strong>
                 <span className="seq-preview">
                   {part.sequence.slice(0, 40)}
                   {part.sequence.length > 40 ? "…" : ""}
                 </span>
-              </div>
+              </button>
               <button type="button" className="remove" onClick={() => onRemovePart(part.uid)}>
                 ×
               </button>
@@ -84,6 +102,30 @@ export default function CircuitCanvas({
         <div className="full-sequence">
           <h3>Full sequence ({fullSequence.length} bp)</h3>
           <code>{fullSequence}</code>
+        </div>
+      )}
+
+      {selectedPart && (
+        <div
+          className="viewer-modal-overlay"
+          role="presentation"
+          onClick={() => setSelectedPart(null)}
+        >
+          <div
+            className="viewer-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="viewer-modal-close"
+              onClick={() => setSelectedPart(null)}
+            >
+              ×
+            </button>
+            <PartViewer3D part={selectedPart} />
+          </div>
         </div>
       )}
     </section>
