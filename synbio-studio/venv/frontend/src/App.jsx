@@ -1,51 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
-import { PART_LIBRARY } from "./data/parts.js";
-
-const API_BASE = "/api";
-
-function PartCard({ part, draggable = true }) {
-  return (
-    <div
-      className={`part-card type-${part.part_type}`}
-      style={{ borderLeftColor: part.color }}
-      draggable={draggable}
-      onDragStart={(e) => {
-        e.dataTransfer.setData("application/json", JSON.stringify(part));
-        e.dataTransfer.effectAllowed = "copy";
-      }}
-    >
-      <span className="part-type">{part.part_type}</span>
-      <strong>{part.label}</strong>
-      <code>{part.part_id}</code>
-    </div>
-  );
-}
+import { api } from "./api/client.js";
+import TraitRecommender from "./components/TraitRecommender.jsx";
+import PartsSidebar from "./components/PartsSidebar.jsx";
+import CircuitCanvas from "./components/CircuitCanvas.jsx";
+import PredictionPanel from "./components/PredictionPanel.jsx";
+import AdminPanel from "./components/AdminPanel.jsx";
 
 export default function App() {
   const [circuit, setCircuit] = useState([]);
-  const [dragOver, setDragOver] = useState(false);
   const [modelStatus, setModelStatus] = useState(null);
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [partsRefreshKey, setPartsRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetch(`${API_BASE}/model/status`)
-      .then((r) => r.json())
-      .then(setModelStatus)
+    api
+      .get("/model/status")
+      .then(({ data }) => setModelStatus(data))
       .catch(() => setModelStatus({ model_loaded: false, mode: "offline" }));
   }, []);
 
-  const onDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragOver(false);
-    try {
-      const part = JSON.parse(e.dataTransfer.getData("application/json"));
-      setCircuit((prev) => [...prev, { ...part, uid: crypto.randomUUID() }]);
-      setPrediction(null);
-    } catch {
-      setError("Could not read dropped part.");
-    }
+  const onAddPart = useCallback((part) => {
+    setCircuit((prev) => [
+      ...prev,
+      { ...part, uid: part.uid || crypto.randomUUID() },
+    ]);
+    setPrediction(null);
   }, []);
 
   const removePart = (uid) => {
@@ -67,22 +48,18 @@ export default function App() {
         part_type,
         sequence,
       }));
-      const res = await fetch(`${API_BASE}/circuits/predict`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ parts }),
-      });
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-      const data = await res.json();
+      const { data } = await api.post("/circuits/predict", { parts });
       setPrediction(data.prediction);
     } catch (err) {
-      setError(err.message || "Prediction failed. Is the API running on port 8000?");
+      const msg =
+        err.response?.data?.detail?.error ||
+        err.message ||
+        "Prediction failed. Is the API running on port 8000?";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setLoading(false);
     }
   };
-
-  const fullSequence = circuit.map((p) => p.sequence).join("");
 
   return (
     <div className="app">
@@ -94,137 +71,33 @@ export default function App() {
             Model: {modelStatus.mode || "unknown"}
             {modelStatus.promoter_features_count
               ? ` · promoter ${modelStatus.promoter_features_count}f`
-              : modelStatus.features_count
-                ? ` · ${modelStatus.features_count} features`
-                : ""}
+              : ""}
             {modelStatus.rbs_model_loaded ? " · RBS model loaded" : ""}
           </div>
         )}
       </header>
 
+      <TraitRecommender onAddPart={onAddPart} />
+
       <main className="layout">
-        <aside className="palette">
-          <h2>Parts library</h2>
-          <p className="hint">Drag parts onto the circuit</p>
-          {PART_LIBRARY.map((part) => (
-            <PartCard key={part.part_id} part={part} />
-          ))}
-        </aside>
+        <PartsSidebar onAddPart={onAddPart} refreshKey={partsRefreshKey} />
 
-        <section
-          className={`canvas ${dragOver ? "drag-over" : ""} ${circuit.length === 0 ? "empty" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-        >
-          <div className="canvas-header">
-            <h2>Circuit</h2>
-            <div className="canvas-actions">
-              <button type="button" onClick={clearCircuit} disabled={!circuit.length}>
-                Clear
-              </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={predict}
-                disabled={!circuit.length || loading}
-              >
-                {loading ? "Predicting…" : "Predict expression"}
-              </button>
-            </div>
-          </div>
-
-          {circuit.length === 0 ? (
-            <p className="drop-hint">Drop parts here to build your construct</p>
-          ) : (
-            <ol className="circuit-list">
-              {circuit.map((part, i) => (
-                <li key={part.uid} className="circuit-item">
-                  <span className="index">{i + 1}</span>
-                  <div
-                    className="circuit-part"
-                    style={{ borderColor: part.color }}
-                  >
-                    <span className="part-type">{part.part_type}</span>
-                    <strong>{part.label}</strong>
-                    <span className="seq-preview">
-                      {part.sequence.slice(0, 40)}
-                      {part.sequence.length > 40 ? "…" : ""}
-                    </span>
-                  </div>
-                  <button type="button" className="remove" onClick={() => removePart(part.uid)}>
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
-
-          {fullSequence && (
-            <div className="full-sequence">
-              <h3>Full sequence ({fullSequence.length} bp)</h3>
-              <code>{fullSequence}</code>
-            </div>
-          )}
-        </section>
+        <CircuitCanvas
+          circuit={circuit}
+          onAddPart={onAddPart}
+          onRemovePart={removePart}
+          onClear={clearCircuit}
+          onPredict={predict}
+          loading={loading}
+        />
 
         <aside className="prediction-panel">
           <h2>Prediction</h2>
-          {error && <p className="error">{error}</p>}
-          {prediction ? (
-            <div className="prediction-result">
-              <div className="metric">
-                <span>Protein yield (relative)</span>
-                <strong>{prediction.expression_level}</strong>
-              </div>
-              {prediction.promoter_strength && (
-                <div className="metric">
-                  <span>Promoter strength</span>
-                  <strong>{prediction.promoter_strength.rpu} RPU</strong>
-                </div>
-              )}
-              {prediction.translation_rate && (
-                <div className="metric">
-                  <span>Translation rate</span>
-                  <strong>
-                    {prediction.translation_rate.value}{" "}
-                    ({prediction.translation_rate.model})
-                  </strong>
-                </div>
-              )}
-              {prediction.protein_yield && (
-                <>
-                  <div className="metric">
-                    <span>Protein length</span>
-                    <strong>{prediction.protein_yield.amino_acid_length} aa</strong>
-                  </div>
-                  {prediction.protein_yield.amino_acid_sequence && (
-                    <div className="metric seq-metric">
-                      <span>Amino acid sequence</span>
-                      <code>{prediction.protein_yield.amino_acid_sequence}</code>
-                    </div>
-                  )}
-                </>
-              )}
-              <div className="metric">
-                <span>Confidence</span>
-                <strong>
-                  {prediction.confidence_interval[0]} – {prediction.confidence_interval[1]}
-                </strong>
-              </div>
-              <div className="metric">
-                <span>Model</span>
-                <strong>{prediction.model}</strong>
-              </div>
-              {prediction.protein_yield?.note && (
-                <p className="hint">{prediction.protein_yield.note}</p>
-              )}
-            </div>
-          ) : (
-            <p className="hint">Add a promoter and click Predict expression.</p>
-          )}
+          <PredictionPanel prediction={prediction} error={error} />
         </aside>
       </main>
+
+      <AdminPanel onPartsRefreshed={() => setPartsRefreshKey((k) => k + 1)} />
     </div>
   );
 }
