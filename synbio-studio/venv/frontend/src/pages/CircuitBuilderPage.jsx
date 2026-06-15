@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, API_BASE } from "../api/client.js";
 import PageHero from "../components/PageHero.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
-import TraitRecommender from "../components/TraitRecommender.jsx";
 import PartsLibrary from "../components/PartsLibrary.jsx";
 import CircuitCanvas from "../components/CircuitCanvas.jsx";
 import PreviewPanel from "../components/PreviewPanel.jsx";
@@ -16,6 +15,8 @@ export default function CircuitBuilderPage() {
   const [partsRefreshKey, setPartsRefreshKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [backendOnline, setBackendOnline] = useState(null);
+  const [showOutput, setShowOutput] = useState(false);
+  const outputRef = useRef(null);
 
   useEffect(() => {
     api
@@ -30,21 +31,25 @@ export default function CircuitBuilderPage() {
       { ...part, uid: part.uid || crypto.randomUUID() },
     ]);
     setPredictResult(null);
+    setShowOutput(false);
   }, []);
 
   const removePart = (uid) => {
     setCircuit((prev) => prev.filter((p) => p.uid !== uid));
     setPredictResult(null);
+    setShowOutput(false);
   };
 
   const clearCircuit = () => {
     setCircuit([]);
     setPredictResult(null);
+    setShowOutput(false);
   };
 
   const predict = async () => {
     setLoading(true);
     setError(null);
+    setShowOutput(true);
     try {
       const parts = circuit.map(({ part_id, part_type, sequence }) => ({
         part_id,
@@ -66,6 +71,11 @@ export default function CircuitBuilderPage() {
     }
   };
 
+  useEffect(() => {
+    if (!showOutput || loading) return;
+    outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [showOutput, loading, predictResult, error]);
+
   return (
     <div className="page circuit-builder-page">
       <PageHero onOpenSettings={() => setSettingsOpen(true)} />
@@ -77,7 +87,6 @@ export default function CircuitBuilderPage() {
       )}
 
       <PartsLibrary onAddPart={onAddPart} refreshKey={partsRefreshKey} />
-      <TraitRecommender onAddPart={onAddPart} />
 
       <section className="circuit-preview-row">
         <CircuitCanvas
@@ -91,11 +100,15 @@ export default function CircuitBuilderPage() {
         <PreviewPanel circuit={circuit} />
       </section>
 
-      <PredictionPanel
-        predictResult={predictResult}
-        error={error}
-        loading={loading}
-      />
+      {showOutput && (
+        <div ref={outputRef}>
+          <PredictionPanel
+            predictResult={predictResult}
+            error={error}
+            loading={loading}
+          />
+        </div>
+      )}
 
       <SettingsModal
         open={settingsOpen}

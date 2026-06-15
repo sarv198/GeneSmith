@@ -1,12 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import $3Dmol from "3dmol";
-import { api } from "../api/client.js";
+import { typeColor } from "../api/client.js";
 import { extractOrganism } from "../utils/partDisplay.js";
 
+function buildLocalStructure(circuit) {
+  let full = "";
+  const parts_map = circuit.map((part) => {
+    const start = full.length;
+    const seq = (part.sequence || "").replace(/\s/g, "").toUpperCase();
+    full += seq;
+    return {
+      part_id: part.part_id,
+      start,
+      end: full.length,
+      color: part.color || typeColor(part.part_type),
+    };
+  });
+  return {
+    assembled_sequence: full,
+    parts_map,
+    total_length: full.length,
+    trimmed: false,
+  };
+}
+
 export default function PreviewPanel({ circuit }) {
-  const [dnaStructure, setDnaStructure] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const containerRef = useRef(null);
   const viewerRef = useRef(null);
+  const [loading, setLoading] = useState(false);
   const partIds = circuit.map((p) => p.part_id).filter(Boolean);
 
   const species =
@@ -15,50 +36,53 @@ export default function PreviewPanel({ circuit }) {
       : "Escherichia coli";
 
   useEffect(() => {
-    if (!partIds.length) {
-      setDnaStructure(null);
+    const container = containerRef.current;
+    if (!container || !circuit.length) {
+      if (viewerRef.current) {
+        viewerRef.current.clear();
+        viewerRef.current = null;
+      }
       return undefined;
     }
-    let cancelled = false;
+
     setLoading(true);
-    api
-      .post("/circuits/dna-structure", { part_ids: partIds })
-      .then(({ data }) => {
-        if (!cancelled) setDnaStructure(data);
-      })
-      .catch(() => {
-        if (!cancelled) setDnaStructure(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+    const dnaStructure = buildLocalStructure(circuit);
+
+    const timer = window.setTimeout(() => {
+      container.innerHTML = "";
+      const viewer = $3Dmol.createViewer(container, {
+        backgroundColor: "#e8e0c8",
       });
+      viewerRef.current = viewer;
+
+      const assembled = dnaStructure.assembled_sequence.replace(/\./g, "");
+      let modelIndex = 0;
+      dnaStructure.parts_map.forEach((part) => {
+        const segment = assembled.slice(part.start, part.end).replace(/[^ATCG]/gi, "");
+        if (segment.length < 3) return;
+        viewer.addModel(`>part_${part.part_id}\n${segment}`, "fasta");
+        viewer.setStyle(
+          { model: modelIndex },
+          { stick: { color: part.color, radius: 0.35 } },
+        );
+        modelIndex += 1;
+      });
+
+      if (modelIndex > 0) {
+        viewer.zoomTo();
+        viewer.render();
+      }
+      setLoading(false);
+    }, 50);
+
     return () => {
-      cancelled = true;
+      window.clearTimeout(timer);
+      if (viewerRef.current) {
+        viewerRef.current.clear();
+        viewerRef.current = null;
+      }
     };
-  }, [partIds.join("|")]);
-
-  useEffect(() => {
-    const container = document.getElementById("preview-helix");
-    if (!container || !dnaStructure?.assembled_sequence) return undefined;
-
-    const viewer = $3Dmol.createViewer(container, { backgroundColor: "#fffbec" });
-    viewerRef.current = viewer;
-    const assembled = dnaStructure.assembled_sequence;
-
-    dnaStructure.parts_map.forEach((part) => {
-      const segment = assembled.slice(part.start, part.end).replace(/\./g, "");
-      if (!segment) return;
-      viewer.addModel(`>part\n${segment}`, "fasta");
-      viewer.setStyle({ model: -1 }, { stick: { color: part.color, radius: 0.3 } });
-    });
-
-    viewer.zoomTo();
-    viewer.render();
-    return () => {
-      viewer.clear();
-      viewerRef.current = null;
-    };
-  }, [dnaStructure]);
+  }, [circuit.map((p) => `${p.part_id}:${p.sequence}`).join("|")]);
 
   return (
     <aside className="preview-panel">
@@ -69,9 +93,9 @@ export default function PreviewPanel({ circuit }) {
         <p className="hint preview-empty">Add parts to the circuit to preview assembly.</p>
       )}
       <div
-        id="preview-helix"
+        ref={containerRef}
         className="preview-canvas"
-        style={{ width: "100%", height: 280 }}
+        style={{ width: "100%", height: 280, minHeight: 280 }}
       />
     </aside>
   );

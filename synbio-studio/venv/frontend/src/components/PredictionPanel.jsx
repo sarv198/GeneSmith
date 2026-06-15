@@ -54,6 +54,10 @@ export default function PredictionPanel({ predictResult, error, loading }) {
     );
   }
 
+  if (!prediction && !error && !loading) {
+    return null;
+  }
+
   if (loading) {
     return (
       <section className="output-panel">
@@ -63,11 +67,7 @@ export default function PredictionPanel({ predictResult, error, loading }) {
   }
 
   if (!prediction) {
-    return (
-      <section className="output-panel output-panel-empty">
-        <p className="hint">Build a circuit and click Predict to see output metrics.</p>
-      </section>
-    );
+    return null;
   }
 
   const proteinYield =

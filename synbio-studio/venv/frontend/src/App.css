@@ -44,9 +44,11 @@ body {
   justify-content: space-between;
   padding: 0 2rem;
   height: 3.75rem;
-  background: var(--nav-purple);
-  border-bottom: none;
-  box-shadow: none;
+  background: rgba(255, 251, 236, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -56,28 +58,31 @@ body {
   background: none;
   border: none;
   padding: 0;
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  color: #fff;
   cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
-.navbar-brand:hover {
-  color: #f3e8ff;
+.navbar-logo {
+  height: 2.5rem;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  background: transparent;
 }
 
 .navbar-links {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
 }
 
 .navbar-link {
   background: transparent;
-  border: 1px solid transparent;
-  color: #f3e8ff;
-  padding: 0.45rem 1.1rem;
-  border-radius: 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text);
+  padding: 0.45rem 1rem;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -85,8 +90,8 @@ body {
 
 .navbar-link:hover,
 .navbar-link.active {
-  color: #fff;
-  border-bottom: 2px solid #fff;
+  color: var(--nav-purple);
+  border-bottom-color: var(--nav-purple);
 }
 
 /* ── Page hero ── */
@@ -292,6 +297,7 @@ body {
 
 /* ── Part tiles ── */
 .part-tile {
+  position: relative;
   background: var(--bg-cream);
   border: 1px solid #888;
   padding: 0.85rem 0.9rem;
@@ -301,6 +307,31 @@ body {
   gap: 0.3rem;
   min-height: 110px;
   transition: backdrop-filter 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.part-add-btn {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: #000;
+  color: #fff;
+  border: none;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.part-add-btn:hover {
+  background: #333;
+  border: none;
 }
 
 .part-tile:hover {
@@ -467,8 +498,9 @@ button.remove {
 .preview-canvas {
   position: relative;
   overflow: hidden;
-  border: 1px solid #e0d8c0;
-  background: var(--bg-cream);
+  border: 1px solid #c9c0a8;
+  background: #e8e0c8;
+  min-height: 280px;
 }
 
 .preview-canvas canvas {

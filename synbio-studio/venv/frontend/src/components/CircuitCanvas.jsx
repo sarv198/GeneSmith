@@ -4,7 +4,8 @@ import { PART_ITEM_TYPE } from "../utils/partHelpers.js";
 import PartViewer3D from "./PartViewer3D.jsx";
 
 function hasType(circuit, type) {
-  const aliases = type === "cds" ? ["cds", "gene"] : [type];
+  const aliases =
+    type === "cds" || type === "gene" ? ["cds", "gene"] : [type];
   return circuit.some((p) => aliases.includes((p.part_type || "").toLowerCase()));
 }
 
@@ -24,11 +25,7 @@ export default function CircuitCanvas({
     collect: (monitor) => ({ isOver: monitor.isOver() }),
   });
 
-  const isComplete =
-    hasType(circuit, "promoter") &&
-    hasType(circuit, "rbs") &&
-    hasType(circuit, "cds") &&
-    hasType(circuit, "terminator");
+  const hasGene = hasType(circuit, "gene");
 
   useEffect(() => {
     if (!selectedPart) return undefined;
@@ -56,7 +53,7 @@ export default function CircuitCanvas({
             onClick={onPredict}
             disabled={!circuit.length || loading}
           >
-            {loading ? "Predicting…" : isComplete ? "Predict" : "Predict (partial)"}
+            {loading ? "Predicting…" : "Predict"}
           </button>
         </div>
       </div>
@@ -64,7 +61,7 @@ export default function CircuitCanvas({
       <ul className="circuit-checklist">
         <li className={hasType(circuit, "promoter") ? "checked" : ""}>Promoter</li>
         <li className={hasType(circuit, "rbs") ? "checked" : ""}>RBS</li>
-        <li className={hasType(circuit, "gene") ? "checked" : ""}>Gene</li>
+        <li className={hasGene ? "checked" : ""}>Gene</li>
         <li className={hasType(circuit, "terminator") ? "checked" : ""}>Terminator</li>
       </ul>
 

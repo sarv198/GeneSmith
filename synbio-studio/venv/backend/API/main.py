@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import os
-import pickle
+import html as html_module
 import re
 import subprocess
 import sys
@@ -739,6 +738,10 @@ def model_status() -> dict[str, Any]:
 @app.get("/parts")
 def list_parts(
     type: str | None = Query(default=None, alias="type"),
+    types: str | None = Query(
+        default=None,
+        description="Comma-separated part types, e.g. promoter,rbs,cds",
+    ),
     search: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -752,19 +755,33 @@ def list_parts(
         )
 
     work = PARTS_DF.copy()
-    if type:
-        normalized = _normalize_type(type)
-        if normalized == "gene":
-            normalized = "cds"
-        work = work[work["part_type"].map(_normalize_type) == normalized]
+
+    type_filters: list[str] = []
+    if types:
+        type_filters = [t.strip() for t in types.split(",") if t.strip()]
+    elif type:
+        type_filters = [type]
+
+    if type_filters:
+        normalized_filters: set[str] = set()
+        for raw in type_filters:
+            normalized = _normalize_type(raw)
+            if normalized == "gene":
+                normalized = "cds"
+            normalized_filters.add(normalized)
+        work = work[work["part_type"].map(_normalize_type).isin(normalized_filters)]
 
     if search:
         pattern = search.strip()
-        name_match = work["name"].fillna("").str.contains(pattern, case=False, na=False)
-        desc_match = work["description"].fillna("").str.contains(
-            pattern, case=False, na=False
+        desc_plain = (
+            work["description"]
+            .fillna("")
+            .map(lambda value: html_module.unescape(str(value)))
         )
-        work = work[name_match | desc_match]
+        name_match = work["name"].fillna("").str.contains(pattern, case=False, na=False)
+        desc_match = desc_plain.str.contains(pattern, case=False, na=False)
+        id_match = work["part_id"].fillna("").str.contains(pattern, case=False, na=False)
+        work = work[name_match | desc_match | id_match]
 
     work = work.sort_values("part_id").reset_index(drop=True)
     total_matches = len(work)
