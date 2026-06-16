@@ -1,7 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd synbio-studio/venv/frontend && npm install",
-  "buildCommand": "cd synbio-studio/venv/frontend && npm run build",
-  "outputDirectory": "synbio-studio/venv/frontend/dist",
-  "framework": null
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }

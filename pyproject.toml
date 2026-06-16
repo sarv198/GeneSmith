@@ -18,3 +18,6 @@ dependencies = [
 
 [tool.vercel]
 entrypoint = "asgi:app"
+
+[tool.vercel.scripts]
+build = "python build_frontend.py"
