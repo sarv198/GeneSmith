@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd synbio-studio/venv/frontend && npm install",
+  "buildCommand": "cd synbio-studio/venv/frontend && npm run build",
+  "outputDirectory": "synbio-studio/venv/frontend/dist",
+  "framework": null,
+  "functions": {
+    "genesmith_asgi.py": {
+      "excludeFiles": "{synbio-studio/venv/frontend/**,**/__pycache__/**,**/*.pyc,synbio-studio/venv/backend/data/igem_parts_raw.xml,synbio-studio/venv/backend/data/igem_parts_raw.xml.gz}"
+    }
+  }
+}

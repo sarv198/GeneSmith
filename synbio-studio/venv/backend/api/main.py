@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html as html_module
+import pickle
 import re
 import subprocess
 import sys

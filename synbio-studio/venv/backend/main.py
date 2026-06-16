@@ -18,9 +18,16 @@ def root():
 
 # Try to mount the more featureful API if it's importable.
 try:
-	from backend.api import main as api_main
-	# mount the API FastAPI app at /api if available
-	if hasattr(api_main, "app"):
+	import importlib
+
+	api_main = None
+	for module_name in ("backend.api.main", "backend.API.main"):
+		try:
+			api_main = importlib.import_module(module_name)
+			break
+		except ModuleNotFoundError:
+			continue
+	if api_main is not None and hasattr(api_main, "app"):
 		app.mount("/api", api_main.app)
 except Exception:
 	# fail gracefully if deeper modules are missing or erroring
