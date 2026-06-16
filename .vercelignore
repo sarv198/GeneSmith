@@ -6,6 +6,9 @@ synbio-studio/venv/frontend/dist
 synbio-studio/venv/backend/data/igem_parts_raw.xml
 synbio-studio/venv/backend/data/igem_parts_raw.xml.gz
 
+# DB migrations / dev tooling — not needed at runtime
+synbio-studio/venv/alembic
+
 # Python bytecode
 **/__pycache__
 **/*.pyc
