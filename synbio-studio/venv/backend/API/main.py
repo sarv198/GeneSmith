@@ -170,6 +170,74 @@ def _build_circuit_svg(parts_detail: list[dict[str, Any]]) -> str:
     )
 
 
+def _search_uniprot_by_sequence(amino_acid_sequence: str) -> str | None:
+    seq = "".join(c for c in amino_acid_sequence.upper() if c.isalpha())
+    if len(seq) < 8:
+        return None
+    try:
+        query = requests.utils.quote(f"sequence:{seq}")
+        url = (
+            "https://rest.uniprot.org/uniprotkb/search"
+            f"?query={query}&format=json&size=1"
+        )
+        response = requests.get(url, timeout=STRUCTURE_API_TIMEOUT)
+        if response.status_code != 200:
+            return None
+        results = response.json().get("results", [])
+        if not results:
+            return None
+        return results[0].get("primaryAccession")
+    except Exception as exc:
+        print(f"UniProt sequence search error: {exc}")
+        return None
+
+
+def _fetch_esmfold_pdb(amino_acid_sequence: str) -> str | None:
+    seq = "".join(c for c in amino_acid_sequence.upper() if c.isalpha())
+    if not seq or len(seq) > 400:
+        return None
+    try:
+        response = requests.post(
+            "https://api.esmatlas.com/foldSequence/v1/pdb/",
+            json={"sequence": seq},
+            headers={"Content-Type": "application/json"},
+            timeout=ESMFOLD_TIMEOUT,
+        )
+        if response.status_code != 200:
+            print(f"ESMFold failed: HTTP {response.status_code}")
+            return None
+        text = response.text.strip()
+        return text if text.startswith("HEADER") or text.startswith("ATOM") else None
+    except Exception as exc:
+        print(f"ESMFold error: {exc}")
+        return None
+
+
+def _resolve_regulatory_structure(
+    part_type: str,
+    part_name: str,
+    row: pd.Series | None = None,
+) -> tuple[str | None, str]:
+    normalized = _normalize_type(part_type)
+    seed = REGULATORY_PDB_SEEDS.get(normalized)
+    if seed:
+        pdb_id, label = seed
+        return f"https://files.rcsb.org/download/{pdb_id}.pdb", label
+
+    search_terms = {
+        "promoter": "promoter DNA RNA polymerase",
+        "rbs": "ribosome binding site 30S",
+        "terminator": "intrinsic terminator RNA hairpin",
+    }
+    term = search_terms.get(normalized, part_name)
+    if row is not None:
+        description = str(row.get("description", "")).strip()
+        if description:
+            term = description[:80]
+    pdb_url = _search_rcsb_pdb(term)
+    return pdb_url, term
+
+
 def _search_uniprot_by_name(part_name: str) -> str | None:
     try:
         query = requests.utils.quote(part_name)
@@ -412,6 +480,11 @@ class DnaStructureRequest(BaseModel):
     preview: bool = False
 
 
+class ProteinStructureRequest(BaseModel):
+    amino_acid_sequence: str
+    part_id: str | None = None
+
+
 PART_TYPE_COLORS = {
     "promoter": "#ff9999",
     "rbs": "#99ccff",
@@ -421,6 +494,13 @@ PART_TYPE_COLORS = {
 }
 
 STRUCTURE_API_TIMEOUT = 10
+ESMFOLD_TIMEOUT = 90
+
+REGULATORY_PDB_SEEDS: dict[str, tuple[str, str]] = {
+    "promoter": ("5GGA", "RNA polymerase open complex on promoter DNA"),
+    "rbs": ("4V9D", "30S ribosomal subunit (translation initiation context)"),
+    "terminator": ("2KX8", "RNA hairpin stem-loop"),
+}
 
 
 def _normalize_type(part_type: str) -> str:
@@ -869,6 +949,20 @@ def get_part_structure(part_id: str) -> dict[str, Any]:
             "sequence": sequence,
         }
 
+    if normalized in {"promoter", "rbs", "terminator"}:
+        pdb_url, structure_label = _resolve_regulatory_structure(
+            part_type, part_name, row
+        )
+        return {
+            "part_id": part_id,
+            "part_type": part_type,
+            "render_mode": "pdb" if pdb_url else "dna_linear",
+            "pdb_url": pdb_url,
+            "uniprot_id": None,
+            "sequence": dna_sequence,
+            "structure_label": structure_label,
+        }
+
     return {
         "part_id": part_id,
         "part_type": part_type,
@@ -895,6 +989,57 @@ def circuit_dna_structure(body: DnaStructureRequest) -> dict[str, Any]:
         status_code=422,
         detail={"error": "Provide part_ids or parts for DNA structure assembly"},
     )
+
+
+@app.post("/circuits/protein-structure")
+def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
+    seq = "".join(c for c in body.amino_acid_sequence.upper() if c.isalpha())
+    if not seq:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "A valid amino acid sequence is required"},
+        )
+
+    uniprot_id = _search_uniprot_by_sequence(seq)
+    pdb_url: str | None = None
+    source = "unknown"
+
+    if uniprot_id:
+        pdb_url = _fetch_alphafold_pdb_url(uniprot_id)
+        if pdb_url:
+            source = "alphafold"
+
+    if not pdb_url and body.part_id:
+        row = _lookup_part_row(body.part_id)
+        if row is not None:
+            part_name = str(row.get("name", body.part_id))
+            pdb_url, uniprot_id, _ = _resolve_protein_structure(
+                part_name, str(row.get("sequence", "")), row
+            )
+            if pdb_url:
+                source = "alphafold" if uniprot_id else "rcsb"
+
+    pdb_content: str | None = None
+    if not pdb_url:
+        pdb_content = _fetch_esmfold_pdb(seq)
+        if pdb_content:
+            source = "esmfold"
+
+    if not pdb_url and not pdb_content:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "Could not resolve a 3D structure for this protein sequence"},
+        )
+
+    return {
+        "amino_acid_sequence": seq,
+        "amino_acid_length": len(seq),
+        "pdb_url": pdb_url,
+        "pdb_content": pdb_content,
+        "uniprot_id": uniprot_id,
+        "source": source,
+        "part_id": body.part_id,
+    }
 
 
 @app.post("/recommend")

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_BASE } from "../api/client.js";
 import PageHero from "../components/PageHero.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
@@ -7,9 +7,13 @@ import CircuitCanvas from "../components/CircuitCanvas.jsx";
 import PreviewPanel from "../components/PreviewPanel.jsx";
 import PredictionPanel from "../components/PredictionPanel.jsx";
 
-export default function CircuitBuilderPage() {
-  const [circuit, setCircuit] = useState([]);
-  const [predictResult, setPredictResult] = useState(null);
+export default function CircuitBuilderPage({
+  circuit,
+  setCircuit,
+  predictResult,
+  setPredictResult,
+  onNavigate,
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [partsRefreshKey, setPartsRefreshKey] = useState(0);
@@ -18,6 +22,14 @@ export default function CircuitBuilderPage() {
   const [showOutput, setShowOutput] = useState(false);
   const outputRef = useRef(null);
 
+  const partCounts = useMemo(() => {
+    const counts = {};
+    circuit.forEach((p) => {
+      counts[p.part_id] = (counts[p.part_id] || 0) + 1;
+    });
+    return counts;
+  }, [circuit]);
+
   useEffect(() => {
     api
       .get("/model/status")
@@ -25,14 +37,17 @@ export default function CircuitBuilderPage() {
       .catch(() => setBackendOnline(false));
   }, [partsRefreshKey]);
 
-  const onAddPart = useCallback((part) => {
-    setCircuit((prev) => [
-      ...prev,
-      { ...part, uid: part.uid || crypto.randomUUID() },
-    ]);
-    setPredictResult(null);
-    setShowOutput(false);
-  }, []);
+  const onAddPart = useCallback(
+    (part) => {
+      setCircuit((prev) => [
+        ...prev,
+        { ...part, uid: part.uid || crypto.randomUUID() },
+      ]);
+      setPredictResult(null);
+      setShowOutput(false);
+    },
+    [setCircuit, setPredictResult],
+  );
 
   const removePart = (uid) => {
     setCircuit((prev) => prev.filter((p) => p.uid !== uid));
@@ -86,7 +101,11 @@ export default function CircuitBuilderPage() {
         </p>
       )}
 
-      <PartsLibrary onAddPart={onAddPart} refreshKey={partsRefreshKey} />
+      <PartsLibrary
+        onAddPart={onAddPart}
+        partCounts={partCounts}
+        refreshKey={partsRefreshKey}
+      />
 
       <section className="circuit-preview-row">
         <CircuitCanvas
@@ -107,6 +126,7 @@ export default function CircuitBuilderPage() {
             predictResult={predictResult}
             error={error}
             loading={loading}
+            onVisualize={() => onNavigate("visualize")}
           />
         </>
       )}

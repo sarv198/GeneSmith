@@ -206,19 +206,21 @@ strong,
 .line-search-input-wrap {
   position: relative;
   width: 70%;
-  border-bottom: 1px solid #c9c0a8;
+  border: 1px solid #b8ae94;
+  border-radius: 2px;
+  padding: 0 1rem;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .line-search-input-wrap:hover,
 .line-search-input-wrap:focus-within {
-  border-bottom-color: #8a7f66;
+  border-color: #8a7f66;
   background: rgba(0, 0, 0, 0.03);
 }
 
 .line-search-placeholder {
   position: absolute;
-  left: 0;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--muted);
@@ -235,7 +237,7 @@ strong,
   width: 100%;
   border: none;
   background: transparent;
-  padding: 0.75rem 0;
+  padding: 1rem 0;
   font-size: 0.95rem;
   color: var(--text);
   outline: none;
@@ -250,7 +252,7 @@ strong,
   border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 0.95rem;
   cursor: pointer;
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -313,7 +315,10 @@ strong,
 
 .grid-empty {
   grid-column: 1 / -1;
+  text-align: center;
   color: var(--muted);
+  font-size: 1rem;
+  padding: 2.5rem 1rem;
   margin: 0;
 }
 
@@ -338,10 +343,34 @@ strong,
   transition: backdrop-filter 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
-.part-add-btn {
+.part-tile-actions {
   position: absolute;
-  top: 0.45rem;
-  right: 0.45rem;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  z-index: 2;
+}
+
+.part-add-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+  margin-right: 0.05rem;
+}
+
+.part-add-check {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+  margin-right: 0.55rem;
+}
+
+.part-add-btn {
+  position: static;
   width: 1.35rem;
   height: 1.35rem;
   border-radius: 50%;
@@ -355,7 +384,7 @@ strong,
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2;
+  flex-shrink: 0;
 }
 
 .part-add-btn:hover {
@@ -673,6 +702,130 @@ button.remove {
   min-width: 2rem;
 }
 
+.output-visualize-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+.btn-visualize-3d {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.btn-visualize-3d:hover {
+  background: #222;
+  border-color: #000;
+}
+
+/* ── Visualize page ── */
+.visualize-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+.visualize-header {
+  margin-bottom: 1.5rem;
+}
+
+.visualize-header h1 {
+  margin: 0 0 0.35rem;
+  color: var(--nav-purple);
+  font-size: 1.75rem;
+}
+
+.visualize-header-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  max-width: 52rem;
+}
+
+.visualize-grid {
+  display: grid;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.visualize-grid-top {
+  grid-template-columns: 1fr 1fr;
+}
+
+.visualize-grid-bottom {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.visualize-panel {
+  background: var(--bg-cream);
+  border: 1px solid #e0d8c0;
+  padding: 1rem;
+  min-height: 200px;
+}
+
+.visualize-panel-large {
+  min-height: 380px;
+}
+
+.visualize-panel-small {
+  min-height: 300px;
+}
+
+.visualize-panel-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.visualize-panel-subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.visualize-canvas {
+  position: relative;
+  overflow: hidden;
+  background: #e8e0c8;
+  border: 1px solid #d9d0b8;
+  width: 100%;
+}
+
+.visualize-canvas-large {
+  height: 340px;
+  min-height: 340px;
+}
+
+.visualize-canvas-small {
+  height: 240px;
+  min-height: 240px;
+}
+
+.visualize-canvas canvas,
+.visualize-canvas-large canvas,
+.visualize-canvas-small canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.protein-viewer-3d .visualize-canvas-large {
+  background: #1a0a2e;
+}
+
+.part-viewer-3d .visualize-canvas-small {
+  background: #0f172a;
+}
+
 /* ── Buttons ── */
 button {
   background: var(--bg-cream);
@@ -888,6 +1041,11 @@ button:disabled {
 
   .output-metrics-row {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .visualize-grid-top,
+  .visualize-grid-bottom {
+    grid-template-columns: 1fr;
   }
 
   .line-search-bar {

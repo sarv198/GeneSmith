@@ -3,7 +3,7 @@ import { typeColor, partToPaletteItem } from "../api/client.js";
 import { displayType, PART_ITEM_TYPE } from "../utils/partHelpers.js";
 import { extractOrganism, extractTrait } from "../utils/partDisplay.js";
 
-export default function PartCard({ part, onAddPart }) {
+export default function PartCard({ part, onAddPart, addCount = 0 }) {
   const palettePart = part.label ? part : partToPaletteItem(part);
   const color = palettePart.color || typeColor(palettePart.part_type);
   const dragPayload = {
@@ -36,15 +36,27 @@ export default function PartCard({ part, onAddPart }) {
       className={`part-tile ${isDragging ? "dragging" : ""}`}
       style={{ borderColor: color, opacity: isDragging ? 0.55 : 1 }}
     >
-      <button
-        type="button"
-        className="part-add-btn"
-        onClick={handleAdd}
-        aria-label={`Add ${palettePart.part_id} to circuit`}
-        title="Add to circuit"
-      >
-        +
-      </button>
+      <div className="part-tile-actions">
+        {addCount > 1 && (
+          <span className="part-add-count" aria-label={`Added ${addCount} times`}>
+            ×{addCount}
+          </span>
+        )}
+        {addCount > 0 && (
+          <span className="part-add-check" aria-hidden="true">
+            ✓
+          </span>
+        )}
+        <button
+          type="button"
+          className="part-add-btn"
+          onClick={handleAdd}
+          aria-label={`Add ${palettePart.part_id} to circuit`}
+          title="Add to circuit"
+        >
+          +
+        </button>
+      </div>
       <span className="part-tile-type">{displayType(palettePart.part_type)}</span>
       <code className="part-tile-id">{palettePart.part_id}</code>
       <span className="part-tile-organism">{organism}</span>

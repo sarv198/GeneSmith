@@ -30,7 +30,9 @@ export default function TheoryPage() {
             className={`theory-step-link ${i === current ? "active" : ""} ${i < current ? "done" : ""}`}
             onClick={() => setCurrent(i)}
           >
-            {i < current ? "✓ " : ""}
+            <span className={`theory-step-num ${i === current ? "active" : ""}`}>
+              {i + 1}
+            </span>
             {s.label}
           </button>
         ))}

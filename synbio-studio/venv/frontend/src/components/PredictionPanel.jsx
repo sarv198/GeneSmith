@@ -39,7 +39,12 @@ function ProteinSequence({ sequence }) {
   );
 }
 
-export default function PredictionPanel({ predictResult, error, loading }) {
+export default function PredictionPanel({
+  predictResult,
+  error,
+  loading,
+  onVisualize,
+}) {
   const prediction = predictResult?.prediction;
   const aminoAcidSequence =
     predictResult?.amino_acid_sequence ||
@@ -106,6 +111,18 @@ export default function PredictionPanel({ predictResult, error, loading }) {
         <h3 className="output-subtitle">PROTEIN SEQUENCE</h3>
         <ProteinSequence sequence={aminoAcidSequence} />
       </div>
+
+      {onVisualize && (
+        <div className="output-visualize-row">
+          <button
+            type="button"
+            className="btn-visualize-3d"
+            onClick={onVisualize}
+          >
+            3D Visualization
+          </button>
+        </div>
+      )}
     </section>
   );
 }

@@ -12,13 +12,23 @@ const PAGES = {
 
 export default function App() {
   const [activePage, setActivePage] = useState("home");
+  const [circuit, setCircuit] = useState([]);
+  const [predictResult, setPredictResult] = useState(null);
   const Page = PAGES[activePage] || CircuitBuilderPage;
+
+  const pageProps = {
+    circuit,
+    setCircuit,
+    predictResult,
+    setPredictResult,
+    onNavigate: setActivePage,
+  };
 
   return (
     <div className="app-shell">
       <Navbar activePage={activePage} onNavigate={setActivePage} />
       <div className="app-content">
-        <Page />
+        <Page {...pageProps} />
       </div>
     </div>
   );

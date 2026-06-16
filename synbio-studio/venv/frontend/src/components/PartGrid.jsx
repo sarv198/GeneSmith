@@ -9,6 +9,7 @@ export default function PartGrid({
   onPrev,
   onNext,
   onAddPart,
+  partCounts = {},
   emptyMessage = "No parts found.",
 }) {
   const totalPages = Math.max(1, Math.ceil(totalMatches / pageSize));
@@ -30,7 +31,12 @@ export default function PartGrid({
 
         <div className="part-grid">
           {parts.map((part) => (
-            <PartCard key={part.part_id} part={part} onAddPart={onAddPart} />
+            <PartCard
+              key={part.part_id}
+              part={part}
+              onAddPart={onAddPart}
+              addCount={partCounts[part.part_id] || 0}
+            />
           ))}
           {!loading && parts.length === 0 && (
             <p className="grid-empty">{emptyMessage}</p>

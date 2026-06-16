@@ -27,15 +27,15 @@ function filterByTypes(parts, activeFilters) {
   });
 }
 
-export default function PartsLibrary({ onAddPart, refreshKey = 0 }) {
+export default function PartsLibrary({ onAddPart, partCounts = {}, refreshKey = 0 }) {
   const [browseParts, setBrowseParts] = useState([]);
   const [browseTotal, setBrowseTotal] = useState(0);
   const [recommendedParts, setRecommendedParts] = useState([]);
   const [showRecommendations, setShowRecommendations] = useState(false);
-  const [activeFilters, setActiveFilters] = useState(ALL_FILTER_IDS);
+  const [activeFilters, setActiveFilters] = useState([]);
   const [traitQuery, setTraitQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [browseLoading, setBrowseLoading] = useState(true);
+  const [browseLoading, setBrowseLoading] = useState(false);
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [recommendError, setRecommendError] = useState(null);
   const [offline, setOffline] = useState(false);
@@ -71,28 +71,34 @@ export default function PartsLibrary({ onAddPart, refreshKey = 0 }) {
   }, [activeFilters, refreshKey, showRecommendations]);
 
   useEffect(() => {
-    if (showRecommendations) return;
+    if (showRecommendations || activeFilters.length === 0) return;
     fetchBrowseParts(selectedTypes, page);
-  }, [selectedTypes.join(","), page, refreshKey, showRecommendations, fetchBrowseParts]);
+  }, [selectedTypes.join(","), page, refreshKey, showRecommendations, activeFilters.length, fetchBrowseParts]);
 
   const filteredRecommendations = filterByTypes(recommendedParts, activeFilters);
   const displayParts = showRecommendations
     ? filteredRecommendations.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
     : browseParts;
-  const totalMatches = showRecommendations
-    ? filteredRecommendations.length
-    : browseTotal;
-  const loading = showRecommendations ? recommendLoading : browseLoading;
+  const totalMatches =
+    activeFilters.length === 0 && !showRecommendations
+      ? 0
+      : showRecommendations
+        ? filteredRecommendations.length
+        : browseTotal;
+  const loading =
+    activeFilters.length === 0 && !showRecommendations
+      ? false
+      : showRecommendations
+        ? recommendLoading
+        : browseLoading;
   const totalPages = Math.max(1, Math.ceil(totalMatches / PAGE_SIZE));
 
   const toggleFilter = (filterId) => {
-    setActiveFilters((prev) => {
-      if (prev.includes(filterId)) {
-        const next = prev.filter((id) => id !== filterId);
-        return next.length ? next : prev;
-      }
-      return [...prev, filterId];
-    });
+    setActiveFilters((prev) =>
+      prev.includes(filterId)
+        ? prev.filter((id) => id !== filterId)
+        : [...prev, filterId],
+    );
     setPage(0);
   };
 
@@ -162,10 +168,13 @@ export default function PartsLibrary({ onAddPart, refreshKey = 0 }) {
         onPrev={() => setPage((p) => Math.max(0, p - 1))}
         onNext={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
         onAddPart={onAddPart}
+        partCounts={partCounts}
         emptyMessage={
-          showRecommendations
-            ? "No recommendations match your filters."
-            : "No parts found."
+          activeFilters.length === 0 && !showRecommendations
+            ? "Select parts"
+            : showRecommendations
+              ? "No recommendations match your filters."
+              : "No parts found."
         }
       />
     </section>

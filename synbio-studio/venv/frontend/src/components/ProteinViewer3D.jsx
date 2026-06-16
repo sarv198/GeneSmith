@@ -4,7 +4,7 @@ import { api } from "../api/client.js";
 import { aminoAcidColor } from "../utils/aminoAcidColors.js";
 
 function safeId(partId) {
-  return String(partId).replace(/[^a-zA-Z0-9_-]/g, "_");
+  return String(partId || "protein").replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
 function AminoAcidSequence({ sequence }) {
@@ -36,77 +36,125 @@ function AminoAcidSequence({ sequence }) {
   );
 }
 
-export default function ProteinViewer3D({ aminoAcidSequence, genePart }) {
+export default function ProteinViewer3D({
+  aminoAcidSequence,
+  genePart,
+  large = false,
+}) {
   const [structureData, setStructureData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const viewportId = `protein-viewport-${safeId(genePart.part_id)}`;
+  const [loadError, setLoadError] = useState(false);
+  const viewportId = `protein-viewport-${safeId(genePart?.part_id)}`;
   const sequence = aminoAcidSequence || "";
   const pdbUrl = structureData?.pdb_url;
+  const pdbContent = structureData?.pdb_content;
+  const source = structureData?.source;
 
   useEffect(() => {
+    if (!sequence) {
+      setStructureData(null);
+      setLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
     setLoading(true);
+    setLoadError(false);
+
     api
-      .get(`/parts/${genePart.part_id}/structure`)
+      .post("/circuits/protein-structure", {
+        amino_acid_sequence: sequence,
+        part_id: genePart?.part_id || null,
+      })
       .then(({ data }) => {
         if (!cancelled) setStructureData(data);
       })
       .catch(() => {
-        if (!cancelled) setStructureData(null);
+        if (!cancelled) {
+          setStructureData(null);
+          setLoadError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, [genePart.part_id]);
+  }, [sequence, genePart?.part_id]);
 
   useEffect(() => {
-    if (!pdbUrl) return undefined;
+    if (!pdbUrl && !pdbContent) return undefined;
+
     const stage = new NGL.Stage(viewportId, { backgroundColor: "#1a0a2e" });
+    let objectUrl = null;
+
+    const loadTarget = pdbUrl
+      ? pdbUrl
+      : (() => {
+          objectUrl = URL.createObjectURL(
+            new Blob([pdbContent], { type: "chemical/x-pdb" }),
+          );
+          return objectUrl;
+        })();
+
     stage
-      .loadFile(pdbUrl, { defaultRepresentation: false })
+      .loadFile(loadTarget, { defaultRepresentation: false })
       .then((component) => {
         component.addRepresentation("cartoon", {
-          colorScheme: "bfactor",
+          colorScheme: source === "alphafold" ? "bfactor" : "chainid",
           smoothSheet: true,
         });
         component.addRepresentation("surface", {
-          opacity: 0.15,
+          opacity: 0.12,
           colorScheme: "electrostatic",
         });
         component.autoView();
         stage.handleResize();
       })
       .catch(() => {});
-    return () => stage.dispose();
-  }, [pdbUrl, viewportId]);
+
+    return () => {
+      stage.dispose();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [pdbUrl, pdbContent, viewportId, source]);
+
+  const canvasClass = large
+    ? "visualize-canvas visualize-canvas-large"
+    : "viewer-canvas";
+  const panelClass = large
+    ? "visualize-panel visualize-panel-large protein-viewer-3d"
+    : "viewer-panel protein-viewer-3d";
 
   return (
-    <div className="viewer-panel protein-viewer-3d">
-      <h3>Predicted Protein Structure</h3>
-      <p className="viewer-subtitle">
-        {sequence.length} amino acids | AlphaFold confidence coloring
+    <div className={panelClass}>
+      <h3 className="visualize-panel-title">Predicted Protein Structure</h3>
+      <p className="visualize-panel-subtitle">
+        {sequence.length > 0
+          ? `${sequence.length} amino acids`
+          : "No protein sequence"}{" "}
+        {source === "alphafold" && "| AlphaFold confidence coloring"}
+        {source === "esmfold" && "| ESMFold structure prediction"}
+        {source === "rcsb" && "| Experimental structure (RCSB)"}
       </p>
 
       {loading && <p className="viewer-loading">Loading protein structure…</p>}
 
-      {!loading && pdbUrl && (
-        <div
-          id={viewportId}
-          className="viewer-canvas"
-          style={{ width: "100%", height: 220, borderRadius: 12 }}
-        />
+      {!loading && (pdbUrl || pdbContent) && (
+        <div id={viewportId} className={canvasClass} />
       )}
 
-      {!loading && !pdbUrl && (
+      {!loading && !pdbUrl && !pdbContent && (
         <p className="viewer-hint">
-          3D structure prediction unavailable — showing sequence only
+          {loadError
+            ? "3D structure prediction unavailable for this sequence."
+            : "Run Predict on the Build page to generate a protein sequence."}
         </p>
       )}
 
-      <AminoAcidSequence sequence={sequence} />
+      {!large && <AminoAcidSequence sequence={sequence} />}
     </div>
   );
 }

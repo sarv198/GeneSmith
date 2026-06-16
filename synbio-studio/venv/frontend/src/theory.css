@@ -43,6 +43,9 @@
 }
 
 .theory-step-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   background: none;
   border: none;
   padding: 0;
@@ -51,6 +54,34 @@
   color: var(--text-muted);
   cursor: pointer;
   text-decoration: none;
+}
+
+.theory-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.theory-step-num.active,
+.theory-step-link.active .theory-step-num {
+  background: var(--text-heading);
+  color: #fff;
+  border-color: var(--text-heading);
+}
+
+.theory-step-link.done .theory-step-num {
+  border-color: var(--text-label);
+  color: var(--text-label);
 }
 
 .theory-step-link:hover {
@@ -219,9 +250,18 @@
   flex: 1;
   padding: 1.25rem 1rem;
   text-align: center;
-  cursor: default;
+  cursor: pointer;
   background: var(--bg);
   border-right: 1px solid var(--border);
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0;
+  font-family: inherit;
+  color: inherit;
+}
+
+.theory-circuit-segment.active {
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .theory-circuit-segment:last-child {
@@ -285,6 +325,42 @@
 .theory-range-row input[type="range"] {
   flex: 1;
   accent-color: var(--text-body);
+}
+
+.theory-range-row-dark input[type="range"],
+.theory-range-dark {
+  accent-color: #000;
+}
+
+.theory-mrna-stack {
+  gap: 0.5rem;
+}
+
+.theory-detail-panel-tight {
+  margin-top: 0.25rem;
+  padding: 0.75rem 1rem;
+}
+
+.theory-translation-stack {
+  gap: 0.35rem;
+}
+
+.theory-translation-controls {
+  margin-bottom: 0;
+  gap: 0.5rem;
+}
+
+.theory-translation-stack svg {
+  margin-top: -0.15rem;
+}
+
+.theory-chain-block {
+  margin-top: 0;
+}
+
+.theory-protein-stack {
+  gap: 0.25rem;
+  margin-top: -1rem;
 }
 
 .theory-chain-label {

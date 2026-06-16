@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { FILL, FILL_ALT, TXT, TXT_SEC, STROKE, FLOW_MRNA, FLOW_RIBO, LEGEND } from "./svgTheme.js";
+import { FILL, FILL_ALT, TXT, TXT_SEC, TXT_BLACK, STROKE, STROKE_BLACK, FLOW_MRNA, FLOW_RIBO, LEGEND, GLASS_FILL, GLASS_STROKE } from "./svgTheme.js";
 
 const STEPS = [
   {
@@ -48,7 +48,7 @@ const STEPS = [
     id: "protein",
     label: "Protein folds",
     title: "The chain folds into a functional protein",
-    desc: "The released amino acid chain spontaneously folds into a 3D structure. Its shape determines function — whether it fluoresces, catalyses a reaction, or senses a molecule in the environment.",
+    desc: "The released amino acid chain folds into a 3D structure. Its shape determines whether it fluoresces, catalyses a reaction, or senses a molecule.",
     tag: "Output",
   },
 ];
@@ -77,21 +77,26 @@ function StepCircuit() {
     { type: "term",     label: "Terminator", desc: "Hairpin loop. Causes RNA pol to detach and releases mRNA." },
   ];
   const [hovered, setHovered] = useState(null);
+  const [selected, setSelected] = useState(null);
+
+  const activeIndex = selected ?? hovered;
 
   return (
     <div className="theory-viz-stack">
       <div className="theory-circuit-strip">
         {parts.map((p, i) => {
           const part = LEGEND[p.type];
-          const isHov = hovered === i;
+          const isActive = activeIndex === i;
           return (
-            <div
+            <button
               key={p.type}
-              className={`theory-circuit-segment ${p.type === "gene" ? "gene" : ""}`}
+              type="button"
+              className={`theory-circuit-segment ${p.type === "gene" ? "gene" : ""} ${isActive ? "active" : ""}`}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
+              onClick={() => setSelected(i)}
               style={{
-                borderTop: isHov ? `2px solid ${part.border}` : "2px solid transparent",
+                borderTop: isActive ? `2px solid ${part.border}` : "2px solid transparent",
               }}
             >
               <div className="theory-circuit-segment-label">{p.label}</div>
@@ -104,14 +109,14 @@ function StepCircuit() {
                       ? "starts translation"
                       : "ends transcription"}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
 
-      {hovered !== null && (
+      {activeIndex !== null && (
         <div className="theory-detail-panel">
-          <strong>{parts[hovered].label}:</strong> {parts[hovered].desc}
+          <strong>{parts[activeIndex].label}:</strong> {parts[activeIndex].desc}
         </div>
       )}
 
@@ -186,15 +191,15 @@ function StepSigma() {
         <text x="162" y="30" fontSize="10" fill={TXT_SEC}>TSS</text>
 
         <g style={{ transform: `translateX(${sigmaX}px)`, transition: scanning ? "none" : "transform 0.3s" }}>
-          <ellipse cx="0" cy="145" rx="44" ry="24" fill={FILL} stroke={atPromoter ? LEGEND.promoter.border : STROKE} strokeWidth="1" />
+          <ellipse cx="0" cy="145" rx="32" ry="17" fill={GLASS_FILL} stroke={atPromoter ? LEGEND.promoter.border : GLASS_STROKE} strokeWidth="1" />
           <text x="0" y="141" textAnchor="middle" fontSize="10" fill={TXT}>σ factor</text>
           <text x="0" y="153" textAnchor="middle" fontSize="9" fill={TXT_SEC}>scanning</text>
           {atPromoter && (
-            <line x1="0" y1="121" x2="0" y2="98" stroke={LEGEND.promoter.border} strokeWidth="1" markerEnd="url(#arr-s)" />
+            <line x1="0" y1="128" x2="0" y2="98" stroke={LEGEND.promoter.border} strokeWidth="1" markerEnd="url(#arr-s)" />
           )}
         </g>
 
-        <ellipse cx="420" cy="150" rx="55" ry="28" fill={FILL} stroke={STROKE} strokeWidth="1" />
+        <ellipse cx="420" cy="150" rx="42" ry="22" fill={GLASS_FILL} stroke={GLASS_STROKE} strokeWidth="1" />
         <text x="420" y="146" textAnchor="middle" fontSize="10" fill={TXT}>RNA Pol</text>
         <text x="420" y="158" textAnchor="middle" fontSize="9" fill={TXT_SEC}>waiting to be recruited</text>
 
@@ -222,9 +227,9 @@ function StepTranscription() {
   const [progress, setProgress] = useState(40);
   return (
     <div className="theory-viz-stack">
-      <div className="theory-range-row">
+      <div className="theory-range-row theory-range-row-dark">
         <span className="theory-hint" style={{ whiteSpace: "nowrap" }}>RNA Pol position</span>
-        <input type="range" min={10} max={90} value={progress} onChange={(e) => setProgress(+e.target.value)} />
+        <input type="range" className="theory-range-dark" min={10} max={90} value={progress} onChange={(e) => setProgress(+e.target.value)} />
         <span className="theory-hint" style={{ minWidth: 34 }}>{progress}%</span>
       </div>
 
@@ -266,8 +271,8 @@ function StepTranscription() {
               {polX > 60 && (
                 <>
                   <path d={`M${polX + 28} 76 Q${polX + 48} 100 ${polX + 60} 120 L${polX + 60} 148`} fill="none" stroke={FLOW_MRNA} strokeWidth="2" strokeLinecap="round" />
-                  <rect x={Math.max(30, polX - 60)} y={148} width={Math.max(10, polX - 10)} height={14} rx="4" fill={FILL} stroke={FLOW_MRNA} strokeWidth="1" />
-                  <text x={Math.max(70, polX - 20)} y={158} textAnchor="middle" fontSize="10" fill={TXT}>mRNA 5'→3'</text>
+                  <rect x={Math.max(30, polX - 72)} y={148} width={Math.max(10, polX - 22)} height={14} rx="4" fill={FILL} stroke={FLOW_MRNA} strokeWidth="1" />
+                  <text x={Math.max(55, polX - 38)} y={158} textAnchor="middle" fontSize="10" fill={TXT}>mRNA 5'→3'</text>
                 </>
               )}
 
@@ -304,7 +309,7 @@ function StepMRNA() {
   ];
 
   return (
-    <div className="theory-viz-stack">
+    <div className="theory-viz-stack theory-mrna-stack">
       <p className="theory-hint">Hover any region to learn what it does.</p>
       <svg width="100%" viewBox="0 0 580 100">
         <rect x="20" y="30" width="550" height="20" rx="4" fill={FILL} stroke={LEGEND.mrna.stroke} strokeWidth="1" />
@@ -319,7 +324,7 @@ function StepMRNA() {
         ))}
       </svg>
 
-      <div className="theory-detail-panel">
+      <div className="theory-detail-panel theory-detail-panel-tight">
         {highlighted ? (
           <>
             <strong>{regions.find((r) => r.id === highlighted)?.label}:</strong>{" "}
@@ -359,11 +364,11 @@ function StepRibosome() {
         <rect x="152" y="104" width="44" height="24" rx="4" fill={FILL} stroke={LEGEND.gene.stroke} strokeWidth="1" />
         <text x="174" y="119" textAnchor="middle" fontSize="10" fill={TXT}>AUG</text>
 
-        <ellipse cx="180" cy={assembled ? 148 : 162} rx={68} ry={26} fill={FILL} stroke={assembled ? FLOW_RIBO : STROKE} strokeWidth="1" style={{ transition: "all 0.5s" }} />
+        <ellipse cx="180" cy={assembled ? 148 : 162} rx={54} ry={20} fill={GLASS_FILL} stroke={assembled ? FLOW_RIBO : GLASS_STROKE} strokeWidth="1" style={{ transition: "all 0.5s" }} />
         <text x="180" y={assembled ? 144 : 158} textAnchor="middle" fontSize="10" fill={TXT} style={{ transition: "all 0.5s" }}>30S</text>
         <text x="180" y={assembled ? 156 : 170} textAnchor="middle" fontSize="9" fill={TXT_SEC} style={{ transition: "all 0.5s" }}>binds SD + AUG</text>
 
-        <ellipse cx="180" cy={assembled ? 88 : 46} rx={82} ry={32} fill={FILL} stroke={assembled ? FLOW_RIBO : STROKE} strokeWidth="1" style={{ transition: "all 0.5s" }} />
+        <ellipse cx="180" cy={assembled ? 88 : 46} rx={64} ry={24} fill={GLASS_FILL} stroke={assembled ? FLOW_RIBO : GLASS_STROKE} strokeWidth="1" style={{ transition: "all 0.5s" }} />
         <text x="180" y={assembled ? 84 : 42} textAnchor="middle" fontSize="10" fill={TXT} style={{ transition: "all 0.5s" }}>50S</text>
         <text x="180" y={assembled ? 96 : 54} textAnchor="middle" fontSize="9" fill={TXT_SEC} style={{ transition: "all 0.5s" }}>peptidyl transferase</text>
 
@@ -394,8 +399,8 @@ function StepTranslation() {
   const chain = AMINO_ACIDS.slice(0, step);
 
   return (
-    <div className="theory-viz-stack">
-      <div className="theory-viz-controls">
+    <div className="theory-viz-stack theory-translation-stack">
+      <div className="theory-viz-controls theory-translation-controls">
         <button type="button" className="theory-btn" onClick={() => setStep(0)} disabled={step === 0}>Reset</button>
         <button type="button" className="theory-btn theory-btn-primary" onClick={() => setStep((s) => Math.min(s + 1, maxStep))} disabled={step === maxStep}>
           {step === maxStep ? "Protein complete" : "Add next amino acid"}
@@ -430,7 +435,7 @@ function StepTranslation() {
         )}
       </svg>
 
-      <div>
+      <div className="theory-chain-block">
         <div className="theory-chain-label">Growing polypeptide chain</div>
         <div className="theory-chain">
           {chain.length === 0 && <span className="theory-hint">Chain will appear here as translation proceeds.</span>}
@@ -448,75 +453,33 @@ function StepTranslation() {
 }
 
 function StepProtein() {
-  const [view, setView] = useState("fold");
-  const yield_factors = [
-    { label: "Promoter RPU", value: 85, unit: "controls transcription rate" },
-    { label: "RBS strength", value: 62, unit: "controls translation initiation" },
-    { label: "Terminator eff.", value: 90, unit: "controls readthrough" },
-    { label: "Gene length", value: 40, unit: "longer = slower elongation" },
-  ];
-
   return (
-    <div className="theory-viz-stack">
-      <div className="theory-viz-controls">
-        {["fold", "yield"].map((v) => (
-          <button
-            key={v}
-            type="button"
-            className={`theory-btn ${view === v ? "theory-btn-primary" : ""}`}
-            onClick={() => setView(v)}
-          >
-            {v === "fold" ? "Protein folding" : "What controls yield?"}
-          </button>
+    <div className="theory-viz-stack theory-protein-stack">
+      <svg width="100%" viewBox="0 0 580 150">
+        <text x="20" y="18" fontSize="11" fill={TXT_BLACK}>1. Linear chain released from ribosome</text>
+        {["Met","Gln","Tyr","Gly","Asn","Pro","Glu","Leu","Ala","Val"].map((aa, i) => (
+          <g key={aa}>
+            <rect x={20 + i * 52} y={24} width={46} height={18} rx="4" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+            <text x={20 + i * 52 + 23} y={36} textAnchor="middle" fontSize="9" fill={TXT_BLACK}>{aa}</text>
+            {i < 9 && <line x1={20 + i * 52 + 46} y1={33} x2={20 + (i + 1) * 52} y2={33} stroke={STROKE_BLACK} strokeWidth="1" />}
+          </g>
         ))}
-      </div>
 
-      {view === "fold" && (
-        <svg width="100%" viewBox="0 0 580 180">
-          <text x="20" y="22" fontSize="11" fill={TXT_SEC}>1. Linear chain released from ribosome</text>
-          {["Met","Gln","Tyr","Gly","Asn","Pro","Glu","Leu","Ala","Val"].map((aa, i) => (
-            <g key={aa}>
-              <rect x={20 + i * 52} y={28} width={46} height={18} rx="4" fill={FILL} stroke={STROKE} strokeWidth="1" />
-              <text x={20 + i * 52 + 23} y={40} textAnchor="middle" fontSize="9" fill={TXT}>{aa}</text>
-              {i < 9 && <line x1={20 + i * 52 + 46} y1={37} x2={20 + (i + 1) * 52} y2={37} stroke={STROKE} strokeWidth="1" />}
-            </g>
-          ))}
+        <text x="20" y="62" fontSize="11" fill={TXT_BLACK}>2. Secondary structure (α-helix and β-sheet)</text>
+        <path d="M30 82 Q50 72 70 82 Q90 92 110 82 Q130 72 150 82 Q170 92 190 82 Q210 72 230 82" fill="none" stroke={STROKE_BLACK} strokeWidth="2" strokeLinecap="round" />
+        <text x="130" y="96" textAnchor="middle" fontSize="9" fill={TXT_BLACK}>α-helix</text>
 
-          <text x="20" y="72" fontSize="11" fill={TXT_SEC}>2. Secondary structure (α-helix and β-sheet)</text>
-          <path d="M30 95 Q50 83 70 95 Q90 107 110 95 Q130 83 150 95 Q170 107 190 95 Q210 83 230 95" fill="none" stroke={STROKE} strokeWidth="2" strokeLinecap="round" />
-          <text x="130" y="112" textAnchor="middle" fontSize="9" fill={TXT_SEC}>α-helix</text>
+        <path d="M280 76 L340 76 L340 86 L348 81 L356 86 L356 76 L416 76 L416 86 L424 81 L432 86 L432 76 L490 76" fill="none" stroke={STROKE_BLACK} strokeWidth="1" />
+        <text x="385" y="96" textAnchor="middle" fontSize="9" fill={TXT_BLACK}>β-sheet</text>
 
-          <path d="M280 88 L340 88 L340 98 L348 93 L356 98 L356 88 L416 88 L416 98 L424 93 L432 98 L432 88 L490 88" fill="none" stroke={STROKE} strokeWidth="1" />
-          <text x="385" y="112" textAnchor="middle" fontSize="9" fill={TXT_SEC}>β-sheet</text>
-
-          <text x="20" y="136" fontSize="11" fill={TXT_SEC}>3. Tertiary fold — functional 3D shape</text>
-          <ellipse cx="80" cy="162" rx="44" ry="14" fill={FILL} stroke={STROKE} strokeWidth="1" />
-          <ellipse cx="96" cy="156" rx="34" ry="12" fill={FILL} stroke={STROKE} strokeWidth="1" />
-          <ellipse cx="80" cy="152" rx="28" ry="10" fill={FILL} stroke={STROKE} strokeWidth="1" />
-          <ellipse cx="88" cy="148" rx="18" ry="8" fill={FILL} stroke={STROKE} strokeWidth="1" />
-          <text x="85" y="153" textAnchor="middle" fontSize="9" fill={TXT}>folded</text>
-          <text x="160" y="158" fontSize="11" fill={TXT_SEC}>shape determines function</text>
-        </svg>
-      )}
-
-      {view === "yield" && (
-        <div className="theory-viz-stack">
-          <p className="theory-hint">GeneSmith's circuit model multiplies these four factors to predict final protein yield.</p>
-          {yield_factors.map((f) => (
-            <div key={f.label} className="theory-yield-bar-row">
-              <span className="theory-yield-bar-label">{f.label}</span>
-              <div className="theory-yield-bar-track">
-                <div className="theory-yield-bar-fill" style={{ width: `${f.value}%` }} />
-              </div>
-              <span className="theory-yield-bar-note">{f.unit}</span>
-            </div>
-          ))}
-          <div className="theory-formula">
-            yield = RPU × TIR × terminator_efficiency / log(gene_length) × 1000
-          </div>
-          <div className="theory-hint">Output units: molecules / cell / hour</div>
-        </div>
-      )}
+        <text x="20" y="118" fontSize="11" fill={TXT_BLACK}>3. Tertiary fold — functional 3D shape</text>
+        <ellipse cx="80" cy="138" rx="44" ry="14" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <ellipse cx="96" cy="132" rx="34" ry="12" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <ellipse cx="80" cy="128" rx="28" ry="10" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <ellipse cx="88" cy="124" rx="18" ry="8" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <text x="85" y="129" textAnchor="middle" fontSize="9" fill={TXT_BLACK}>folded</text>
+        <text x="160" y="134" fontSize="11" fill={TXT_BLACK}>shape determines function</text>
+      </svg>
     </div>
   );
 }
