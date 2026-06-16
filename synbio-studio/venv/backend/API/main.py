@@ -308,29 +308,55 @@ def _clip_part_regions(
     return mapped
 
 
-def _assemble_dna_structure(part_ids: list[str]) -> dict[str, Any]:
+def _assemble_dna_structure(
+    part_ids: list[str],
+    *,
+    preview: bool = False,
+) -> dict[str, Any]:
+    parts_input = [{"part_id": pid} for pid in part_ids]
+    return _assemble_dna_structure_from_parts(parts_input, preview=preview)
+
+
+def _assemble_dna_structure_from_parts(
+    parts_input: list[dict[str, Any]],
+    *,
+    preview: bool = False,
+) -> dict[str, Any]:
     full_sequence = ""
     parts_layout: list[dict[str, Any]] = []
-    for part_id in part_ids:
-        row = _lookup_part_row(part_id)
-        sequence = str(row["sequence"]) if row is not None else ""
-        part_type = str(row.get("part_type", "unknown")) if row is not None else "unknown"
+    for part in parts_input:
+        part_id = str(part.get("part_id", ""))
+        sequence = str(part.get("sequence", "")).strip()
+        part_type = str(part.get("part_type", "")).strip()
+
+        if not sequence and part_id:
+            row = _lookup_part_row(part_id)
+            if row is not None:
+                sequence = str(row.get("sequence", ""))
+                if not part_type:
+                    part_type = str(row.get("part_type", "unknown"))
+
+        normalized = _normalize_type(part_type) if part_type else "unknown"
         start = len(full_sequence)
         full_sequence += sequence
+        color = part.get("color") or _part_color(normalized)
         parts_layout.append(
             {
                 "part_id": part_id,
-                "part_type": part_type,
+                "part_type": part_type or normalized,
                 "start": start,
                 "end": len(full_sequence),
-                "color": _part_color(part_type),
+                "color": color,
             }
         )
 
     total_length = len(full_sequence)
-    trimmed = total_length > 300
+    trim_threshold = 2000 if preview else 300
+    trimmed = total_length > trim_threshold
     if trimmed:
-        assembled_sequence = f"{full_sequence[:150]}...{full_sequence[-150:]}"
+        head = 150 if not preview else min(400, total_length // 2)
+        tail = 150 if not preview else min(400, total_length - head)
+        assembled_sequence = f"{full_sequence[:head]}...{full_sequence[-tail:]}"
         parts_map = _clip_part_regions(parts_layout, total_length)
     else:
         assembled_sequence = full_sequence
@@ -373,8 +399,17 @@ class RetrainRequest(BaseModel):
     models: list[str] | None = None
 
 
+class DnaStructurePart(BaseModel):
+    part_id: str
+    part_type: str = ""
+    sequence: str = ""
+    color: str | None = None
+
+
 class DnaStructureRequest(BaseModel):
-    part_ids: list[str]
+    part_ids: list[str] | None = None
+    parts: list[DnaStructurePart] | None = None
+    preview: bool = False
 
 
 PART_TYPE_COLORS = {
@@ -846,12 +881,20 @@ def get_part_structure(part_id: str) -> dict[str, Any]:
 
 @app.post("/circuits/dna-structure")
 def circuit_dna_structure(body: DnaStructureRequest) -> dict[str, Any]:
-    if PARTS_DF is None:
+    if PARTS_DF is None and not body.parts:
         raise HTTPException(
             status_code=503,
             detail={"error": "Parts library not loaded. Run combine_datasets.py first."},
         )
-    return _assemble_dna_structure(body.part_ids)
+    if body.parts:
+        parts_input = [p.model_dump() for p in body.parts]
+        return _assemble_dna_structure_from_parts(parts_input, preview=body.preview)
+    if body.part_ids:
+        return _assemble_dna_structure(body.part_ids, preview=body.preview)
+    raise HTTPException(
+        status_code=422,
+        detail={"error": "Provide part_ids or parts for DNA structure assembly"},
+    )
 
 
 @app.post("/recommend")

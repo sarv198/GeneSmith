@@ -3,7 +3,6 @@ import {
   STEPS,
   STEP_RENDERS,
   PartChip,
-  TAG_COLORS,
 } from "../components/theory/TheorySteps.jsx";
 import "../theory.css";
 
@@ -11,7 +10,6 @@ export default function TheoryPage() {
   const [current, setCurrent] = useState(0);
   const StepComponent = STEP_RENDERS[current];
   const step = STEPS[current];
-  const tagStyle = TAG_COLORS[step.tag] || TAG_COLORS.Overview;
 
   return (
     <div className="page theory-page">
@@ -29,7 +27,7 @@ export default function TheoryPage() {
           <button
             key={s.id}
             type="button"
-            className={`theory-step-pill ${i === current ? "active" : ""} ${i < current ? "done" : ""}`}
+            className={`theory-step-link ${i === current ? "active" : ""} ${i < current ? "done" : ""}`}
             onClick={() => setCurrent(i)}
           >
             {i < current ? "✓ " : ""}
@@ -40,14 +38,6 @@ export default function TheoryPage() {
 
       <article className="theory-stage" key={current}>
         <div className="theory-stage-header">
-          <div className="theory-stage-meta">
-            <span className="theory-tag" style={{ background: tagStyle.bg, color: tagStyle.text }}>
-              {step.tag}
-            </span>
-            <span className="theory-step-count">
-              {current + 1} of {STEPS.length}
-            </span>
-          </div>
           <h2 className="theory-stage-title">{step.title}</h2>
           <p className="theory-stage-desc">{step.desc}</p>
         </div>
@@ -59,25 +49,12 @@ export default function TheoryPage() {
         <footer className="theory-nav-footer">
           <button
             type="button"
-            className="theory-btn theory-btn-ghost"
+            className="theory-btn"
             onClick={() => setCurrent((c) => Math.max(0, c - 1))}
             disabled={current === 0}
           >
-            ← Back
+            Back
           </button>
-
-          <div className="theory-progress-dots" aria-hidden="true">
-            {STEPS.map((_, i) => (
-              <span
-                key={i}
-                role="button"
-                tabIndex={0}
-                className={`theory-progress-dot ${i === current ? "active" : ""} ${i < current ? "done" : ""}`}
-                onClick={() => setCurrent(i)}
-                onKeyDown={(e) => e.key === "Enter" && setCurrent(i)}
-              />
-            ))}
-          </div>
 
           <button
             type="button"
@@ -85,7 +62,7 @@ export default function TheoryPage() {
             onClick={() => setCurrent((c) => Math.min(STEPS.length - 1, c + 1))}
             disabled={current === STEPS.length - 1}
           >
-            {current === STEPS.length - 1 ? "Complete ✓" : "Next →"}
+            {current === STEPS.length - 1 ? "Complete" : "Next"}
           </button>
         </footer>
       </article>
