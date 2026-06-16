@@ -5,7 +5,7 @@
   "outputDirectory": "synbio-studio/venv/frontend/dist",
   "framework": null,
   "functions": {
-    "genesmith_asgi.py": {
+    "asgi.py": {
       "excludeFiles": "{synbio-studio/venv/frontend/**,**/__pycache__/**,**/*.pyc,synbio-studio/venv/backend/data/igem_parts_raw.xml,synbio-studio/venv/backend/data/igem_parts_raw.xml.gz}"
     }
   }

@@ -17,4 +17,4 @@ dependencies = [
 ]
 
 [tool.vercel]
-entrypoint = "genesmith_asgi:app"
+entrypoint = "asgi:app"
