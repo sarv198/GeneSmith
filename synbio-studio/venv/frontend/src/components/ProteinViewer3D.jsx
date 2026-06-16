@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as NGL from "ngl";
 import { api } from "../api/client.js";
 import { aminoAcidColor } from "../utils/aminoAcidColors.js";
@@ -36,6 +36,22 @@ function AminoAcidSequence({ sequence }) {
   );
 }
 
+function buildStructurePayload(sequence, genePart) {
+  if (sequence) {
+    return {
+      amino_acid_sequence: sequence,
+      part_id: genePart?.part_id || null,
+    };
+  }
+  if (genePart?.part_id) {
+    return {
+      amino_acid_sequence: "",
+      part_id: genePart.part_id,
+    };
+  }
+  return null;
+}
+
 export default function ProteinViewer3D({
   aminoAcidSequence,
   genePart,
@@ -43,36 +59,48 @@ export default function ProteinViewer3D({
 }) {
   const [structureData, setStructureData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const viewportId = `protein-viewport-${safeId(genePart?.part_id)}`;
-  const sequence = aminoAcidSequence || "";
-  const pdbUrl = structureData?.pdb_url;
+  const [loadError, setLoadError] = useState(null);
+  const viewportRef = useRef(null);
+  const stageRef = useRef(null);
+
+  const sequence =
+    structureData?.amino_acid_sequence || aminoAcidSequence || "";
   const pdbContent = structureData?.pdb_content;
+  const pdbUrl = structureData?.pdb_url;
   const source = structureData?.source;
+  const matchType = structureData?.match_type;
+  const disclaimer = structureData?.disclaimer;
+  const hasStructure = Boolean(pdbContent || pdbUrl);
+  const requestKey = `${aminoAcidSequence || ""}|${genePart?.part_id || ""}`;
 
   useEffect(() => {
-    if (!sequence) {
+    const payload = buildStructurePayload(aminoAcidSequence, genePart);
+    if (!payload) {
       setStructureData(null);
       setLoading(false);
+      setLoadError(null);
       return undefined;
     }
 
     let cancelled = false;
     setLoading(true);
-    setLoadError(false);
+    setLoadError(null);
+    setStructureData(null);
 
     api
-      .post("/circuits/protein-structure", {
-        amino_acid_sequence: sequence,
-        part_id: genePart?.part_id || null,
-      })
+      .post("/circuits/protein-structure", payload)
       .then(({ data }) => {
         if (!cancelled) setStructureData(data);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!cancelled) {
           setStructureData(null);
-          setLoadError(true);
+          const detail = err.response?.data?.detail;
+          const message =
+            (typeof detail === "object" && detail?.error) ||
+            (typeof detail === "string" ? detail : null) ||
+            "Could not resolve a protein structure for this circuit.";
+          setLoadError(message);
         }
       })
       .finally(() => {
@@ -82,44 +110,65 @@ export default function ProteinViewer3D({
     return () => {
       cancelled = true;
     };
-  }, [sequence, genePart?.part_id]);
+  }, [requestKey]);
 
-  useEffect(() => {
-    if (!pdbUrl && !pdbContent) return undefined;
+  useLayoutEffect(() => {
+    if (loading || !hasStructure) return undefined;
 
-    const stage = new NGL.Stage(viewportId, { backgroundColor: "#1a0a2e" });
+    const el = viewportRef.current;
+    if (!el) return undefined;
+
     let objectUrl = null;
+    let cancelled = false;
 
-    const loadTarget = pdbUrl
-      ? pdbUrl
-      : (() => {
+    stageRef.current?.dispose();
+    stageRef.current = null;
+    el.replaceChildren();
+
+    const stage = new NGL.Stage(el, { backgroundColor: "#1a0a2e" });
+    stageRef.current = stage;
+
+    const loadTarget = pdbContent
+      ? (() => {
           objectUrl = URL.createObjectURL(
             new Blob([pdbContent], { type: "chemical/x-pdb" }),
           );
           return objectUrl;
-        })();
+        })()
+      : pdbUrl;
 
     stage
-      .loadFile(loadTarget, { defaultRepresentation: false })
+      .loadFile(loadTarget, { defaultRepresentation: false, ext: "pdb" })
       .then((component) => {
-        component.addRepresentation("cartoon", {
-          colorScheme: source === "alphafold" ? "bfactor" : "chainid",
-          smoothSheet: true,
-        });
-        component.addRepresentation("surface", {
-          opacity: 0.12,
-          colorScheme: "electrostatic",
-        });
+        if (cancelled) return;
+        try {
+          component.addRepresentation("cartoon", {
+            colorScheme: source === "alphafold" ? "bfactor" : "chainid",
+            smoothSheet: true,
+          });
+        } catch (reprErr) {
+          console.warn("Cartoon representation failed:", reprErr);
+        }
         component.autoView();
         stage.handleResize();
+        setLoadError(null);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("NGL protein load failed:", err);
+        if (!cancelled) {
+          setLoadError(
+            "Structure data was found but could not be rendered in the 3D viewer.",
+          );
+        }
+      });
 
     return () => {
+      cancelled = true;
       stage.dispose();
+      stageRef.current = null;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [pdbUrl, pdbContent, viewportId, source]);
+  }, [loading, hasStructure, pdbContent, pdbUrl, source]);
 
   const canvasClass = large
     ? "visualize-canvas visualize-canvas-large"
@@ -128,29 +177,47 @@ export default function ProteinViewer3D({
     ? "visualize-panel visualize-panel-large protein-viewer-3d"
     : "viewer-panel protein-viewer-3d";
 
+  const subtitleParts = [];
+  if (sequence.length > 0) {
+    subtitleParts.push(`${sequence.length} amino acids`);
+  }
+  if (matchType === "exact" && source === "alphafold") {
+    subtitleParts.push("AlphaFold confidence coloring");
+  } else if (matchType === "closest" && source === "alphafold") {
+    subtitleParts.push("Closest AlphaFold homolog");
+  } else if (source === "esmfold") {
+    subtitleParts.push("ESMFold structure prediction");
+  }
+
+  const showCanvas = !loading && hasStructure;
+
   return (
     <div className={panelClass}>
       <h3 className="visualize-panel-title">Predicted Protein Structure</h3>
       <p className="visualize-panel-subtitle">
-        {sequence.length > 0
-          ? `${sequence.length} amino acids`
-          : "No protein sequence"}{" "}
-        {source === "alphafold" && "| AlphaFold confidence coloring"}
-        {source === "esmfold" && "| ESMFold structure prediction"}
-        {source === "rcsb" && "| Experimental structure (RCSB)"}
+        {subtitleParts.length > 0 ? subtitleParts.join(" | ") : "No protein sequence"}
       </p>
+
+      {disclaimer && !loading && (
+        <p className="protein-structure-disclaimer">{disclaimer}</p>
+      )}
 
       {loading && <p className="viewer-loading">Loading protein structure…</p>}
 
-      {!loading && (pdbUrl || pdbContent) && (
-        <div id={viewportId} className={canvasClass} />
+      <div
+        ref={viewportRef}
+        className={canvasClass}
+        style={{ display: showCanvas ? "block" : "none" }}
+      />
+
+      {!loading && loadError && (
+        <p className="viewer-hint warn-text">{loadError}</p>
       )}
 
-      {!loading && !pdbUrl && !pdbContent && (
+      {!loading && !hasStructure && !loadError && (
         <p className="viewer-hint">
-          {loadError
-            ? "3D structure prediction unavailable for this sequence."
-            : "Run Predict on the Build page to generate a protein sequence."}
+          Add a gene/CDS part and run Predict on the Build page to generate a
+          protein sequence.
         </p>
       )}
 

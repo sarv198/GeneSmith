@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -170,8 +171,174 @@ def _build_circuit_svg(parts_detail: list[dict[str, Any]]) -> str:
     )
 
 
+def _clean_amino_acid_sequence(amino_acid_sequence: str) -> str:
+    return "".join(c for c in amino_acid_sequence.upper() if c.isalpha())
+
+
+def _sequence_similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def _uniprot_id_for_cds_row(
+    row: pd.Series,
+    *,
+    allow_name_search: bool = False,
+) -> str | None:
+    if _is_present(row.get("uniprot_id")):
+        return str(row["uniprot_id"]).strip()
+    if allow_name_search:
+        part_name = str(row.get("name", row.get("part_id", "")))
+        return _search_uniprot_by_name(part_name)
+    return None
+
+
+def _fetch_pdb_text(pdb_url: str) -> str | None:
+    try:
+        response = requests.get(pdb_url, timeout=30)
+        if response.status_code != 200:
+            print(f"PDB download failed: HTTP {response.status_code} for {pdb_url}")
+            return None
+        text = response.text.strip()
+        if text.startswith("HEADER") or text.startswith("ATOM"):
+            return text
+        return None
+    except Exception as exc:
+        print(f"PDB download error for {pdb_url}: {exc}")
+        return None
+
+
+def _sequence_from_part_id(part_id: str | None) -> str:
+    if not part_id:
+        return ""
+    row = _lookup_part_row(part_id)
+    if row is None:
+        return ""
+    if _normalize_type(str(row.get("part_type", ""))) != "cds":
+        return ""
+    return _translate_dna(str(row.get("sequence", "")))
+
+
+def _alphafold_match_from_cds_row(
+    row: pd.Series,
+    *,
+    match_type: str,
+    identity: float | None = None,
+) -> dict[str, Any] | None:
+    uniprot_id = _uniprot_id_for_cds_row(row, allow_name_search=True)
+    if not uniprot_id:
+        return None
+    pdb_url = _fetch_alphafold_pdb_url(uniprot_id)
+    if not pdb_url:
+        return None
+    pdb_content = _fetch_pdb_text(pdb_url)
+    part_name = str(row.get("name", row.get("part_id", "")))
+    result: dict[str, Any] = {
+        "pdb_url": pdb_url,
+        "pdb_content": pdb_content,
+        "uniprot_id": uniprot_id,
+        "source": "alphafold",
+        "match_type": match_type,
+        "matched_protein_name": part_name,
+        "matched_part_id": str(row.get("part_id", "")),
+        "disclaimer": None,
+    }
+    if match_type == "closest" and identity is not None:
+        pct = round(identity * 100, 1)
+        result["match_identity"] = pct
+        result["disclaimer"] = (
+            "An exact AlphaFold model for your predicted amino acid sequence "
+            "is unavailable. Showing the closest available AlphaFold structure "
+            f"({part_name}, {pct:g}% sequence similarity) - "
+            "the nearest accurate structural depiction for your circuit."
+        )
+    return result
+
+
+def _find_closest_alphafold_match(
+    query_seq: str,
+    part_id: str | None = None,
+) -> dict[str, Any] | None:
+    if PARTS_DF is None or len(query_seq) < 8:
+        return None
+
+    query_len = len(query_seq)
+    best: dict[str, Any] | None = None
+    best_score = 0.0
+    seen: set[str] = set()
+    rows_to_check: list[pd.Series] = []
+
+    if part_id:
+        circuit_row = _lookup_part_row(part_id)
+        if circuit_row is not None:
+            rows_to_check.append(circuit_row)
+
+    cds_mask = PARTS_DF["part_type"].apply(
+        lambda t: _normalize_type(str(t)) == "cds",
+    )
+    for _, row in PARTS_DF.loc[cds_mask].iterrows():
+        rows_to_check.append(row)
+
+    for row in rows_to_check:
+        pid = str(row.get("part_id", ""))
+        if not pid or pid in seen:
+            continue
+        seen.add(pid)
+
+        reference_aa = _translate_dna(str(row.get("sequence", "")))
+        if len(reference_aa) < 8:
+            continue
+
+        len_ratio = min(query_len, len(reference_aa)) / max(query_len, len(reference_aa))
+        if len_ratio < 0.25:
+            continue
+
+        identity = _sequence_similarity(query_seq, reference_aa)
+        if identity <= best_score:
+            continue
+
+        uniprot_id = _uniprot_id_for_cds_row(row, allow_name_search=False)
+        if not uniprot_id:
+            continue
+
+        best_score = identity
+        best = {
+            "identity": identity,
+            "part_id": pid,
+            "part_name": str(row.get("name", pid)),
+            "uniprot_id": uniprot_id,
+            "reference_sequence": reference_aa,
+        }
+
+    if not best or best_score < 0.3:
+        return None
+
+    if part_id:
+        circuit_row = _lookup_part_row(part_id)
+        if circuit_row is not None and _normalize_type(str(circuit_row.get("part_type", ""))) == "cds":
+            circuit_aa = _translate_dna(str(circuit_row.get("sequence", "")))
+            if len(circuit_aa) >= 8:
+                circuit_identity = _sequence_similarity(query_seq, circuit_aa)
+                circuit_uid = _uniprot_id_for_cds_row(circuit_row, allow_name_search=True)
+                if (
+                    circuit_uid
+                    and circuit_identity >= 0.7
+                    and circuit_identity >= best_score - 0.08
+                ):
+                    return {
+                        "identity": circuit_identity,
+                        "part_id": str(circuit_row.get("part_id", part_id)),
+                        "part_name": str(circuit_row.get("name", part_id)),
+                        "uniprot_id": circuit_uid,
+                        "reference_sequence": circuit_aa,
+                    }
+
+    return best
+
+
 def _search_uniprot_by_sequence(amino_acid_sequence: str) -> str | None:
-    seq = "".join(c for c in amino_acid_sequence.upper() if c.isalpha())
+    seq = _clean_amino_acid_sequence(amino_acid_sequence)
     if len(seq) < 8:
         return None
     try:
@@ -481,7 +648,7 @@ class DnaStructureRequest(BaseModel):
 
 
 class ProteinStructureRequest(BaseModel):
-    amino_acid_sequence: str
+    amino_acid_sequence: str = ""
     part_id: str | None = None
 
 
@@ -498,7 +665,7 @@ ESMFOLD_TIMEOUT = 90
 
 REGULATORY_PDB_SEEDS: dict[str, tuple[str, str]] = {
     "promoter": ("5GGA", "RNA polymerase open complex on promoter DNA"),
-    "rbs": ("4V9D", "30S ribosomal subunit (translation initiation context)"),
+    "rbs": ("1SEM", "30S ribosomal subunit (Shine-Dalgarno binding context)"),
     "terminator": ("2KX8", "RNA hairpin stem-loop"),
 }
 
@@ -993,43 +1160,96 @@ def circuit_dna_structure(body: DnaStructureRequest) -> dict[str, Any]:
 
 @app.post("/circuits/protein-structure")
 def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
-    seq = "".join(c for c in body.amino_acid_sequence.upper() if c.isalpha())
+    seq = _clean_amino_acid_sequence(body.amino_acid_sequence)
+    if not seq and body.part_id:
+        seq = _clean_amino_acid_sequence(_sequence_from_part_id(body.part_id))
     if not seq:
         raise HTTPException(
             status_code=422,
-            detail={"error": "A valid amino acid sequence is required"},
+            detail={"error": "A valid amino acid sequence or CDS part_id is required"},
         )
 
-    uniprot_id = _search_uniprot_by_sequence(seq)
+    uniprot_id: str | None = None
     pdb_url: str | None = None
+    pdb_content: str | None = None
     source = "unknown"
+    match_type = "none"
+    match_identity: float | None = None
+    matched_protein_name: str | None = None
+    matched_part_id: str | None = None
+    disclaimer: str | None = None
 
+    def _apply_structure_result(result: dict[str, Any]) -> None:
+        nonlocal pdb_url, pdb_content, uniprot_id, source, match_type
+        nonlocal match_identity, matched_protein_name, matched_part_id, disclaimer
+        pdb_url = result.get("pdb_url")
+        pdb_content = result.get("pdb_content")
+        uniprot_id = result.get("uniprot_id")
+        source = str(result.get("source", "alphafold"))
+        match_type = str(result.get("match_type", "exact"))
+        match_identity = result.get("match_identity")
+        matched_protein_name = result.get("matched_protein_name")
+        matched_part_id = result.get("matched_part_id")
+        disclaimer = result.get("disclaimer")
+
+    uniprot_id = _search_uniprot_by_sequence(seq)
     if uniprot_id:
-        pdb_url = _fetch_alphafold_pdb_url(uniprot_id)
-        if pdb_url:
-            source = "alphafold"
+        candidate_url = _fetch_alphafold_pdb_url(uniprot_id)
+        if candidate_url:
+            _apply_structure_result(
+                {
+                    "pdb_url": candidate_url,
+                    "pdb_content": _fetch_pdb_text(candidate_url),
+                    "uniprot_id": uniprot_id,
+                    "source": "alphafold",
+                    "match_type": "exact",
+                }
+            )
 
     if not pdb_url and body.part_id:
-        row = _lookup_part_row(body.part_id)
-        if row is not None:
-            part_name = str(row.get("name", body.part_id))
-            pdb_url, uniprot_id, _ = _resolve_protein_structure(
-                part_name, str(row.get("sequence", "")), row
+        circuit_row = _lookup_part_row(body.part_id)
+        if circuit_row is not None and _normalize_type(str(circuit_row.get("part_type", ""))) == "cds":
+            circuit_aa = _translate_dna(str(circuit_row.get("sequence", "")))
+            identity = _sequence_similarity(seq, circuit_aa) if circuit_aa else 0.0
+            homolog = _alphafold_match_from_cds_row(
+                circuit_row,
+                match_type="closest" if identity < 0.98 else "exact",
+                identity=identity if identity < 0.98 else None,
             )
-            if pdb_url:
-                source = "alphafold" if uniprot_id else "rcsb"
+            if homolog:
+                _apply_structure_result(homolog)
 
-    pdb_content: str | None = None
     if not pdb_url:
+        closest = _find_closest_alphafold_match(seq, body.part_id)
+        if closest:
+            closest_row = _lookup_part_row(str(closest["part_id"]))
+            if closest_row is not None:
+                homolog = _alphafold_match_from_cds_row(
+                    closest_row,
+                    match_type="closest",
+                    identity=float(closest["identity"]),
+                )
+                if homolog:
+                    _apply_structure_result(homolog)
+
+    if not pdb_url and not pdb_content:
         pdb_content = _fetch_esmfold_pdb(seq)
         if pdb_content:
             source = "esmfold"
+            match_type = "predicted"
+            disclaimer = (
+                "No close AlphaFold homolog was found. Showing an ESMFold prediction "
+                "computed directly from your amino acid sequence."
+            )
 
     if not pdb_url and not pdb_content:
         raise HTTPException(
             status_code=404,
             detail={"error": "Could not resolve a 3D structure for this protein sequence"},
         )
+
+    if pdb_url and not pdb_content:
+        pdb_content = _fetch_pdb_text(pdb_url)
 
     return {
         "amino_acid_sequence": seq,
@@ -1038,6 +1258,11 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
         "pdb_content": pdb_content,
         "uniprot_id": uniprot_id,
         "source": source,
+        "match_type": match_type,
+        "match_identity": match_identity,
+        "matched_protein_name": matched_protein_name,
+        "matched_part_id": matched_part_id,
+        "disclaimer": disclaimer,
         "part_id": body.part_id,
     }
 

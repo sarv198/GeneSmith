@@ -126,7 +126,7 @@ export default function CircuitHelixViewer({ circuit }) {
     const raf = requestAnimationFrame(() => {
       if (cancelled) return;
       try {
-        const viewer = createViewer(container, { backgroundColor: "#e8e0c8" });
+        const viewer = createViewer(container, { backgroundColor: "#0f172a" });
         viewerRef.current = viewer;
         const structure = buildStructureFromCircuit(circuit, typeColor);
         const ok = renderCircuitHelix(viewer, structure);
@@ -153,7 +153,7 @@ export default function CircuitHelixViewer({ circuit }) {
   }, [structureKey]);
 
   return (
-    <div className="visualize-panel visualize-panel-large">
+    <div className="visualize-panel visualize-panel-large circuit-helix-viewer">
       <h3 className="visualize-panel-title">Circuit DNA Construct</h3>
       <p className="visualize-panel-subtitle">
         Full assembled helix from your circuit parts

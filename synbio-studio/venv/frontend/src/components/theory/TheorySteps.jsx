@@ -455,7 +455,7 @@ function StepTranslation() {
 function StepProtein() {
   return (
     <div className="theory-viz-stack theory-protein-stack">
-      <svg width="100%" viewBox="0 0 580 150">
+      <svg width="100%" viewBox="0 0 580 168">
         <text x="20" y="18" fontSize="11" fill={TXT_BLACK}>1. Linear chain released from ribosome</text>
         {["Met","Gln","Tyr","Gly","Asn","Pro","Glu","Leu","Ala","Val"].map((aa, i) => (
           <g key={aa}>
@@ -472,13 +472,13 @@ function StepProtein() {
         <path d="M280 76 L340 76 L340 86 L348 81 L356 86 L356 76 L416 76 L416 86 L424 81 L432 86 L432 76 L490 76" fill="none" stroke={STROKE_BLACK} strokeWidth="1" />
         <text x="385" y="96" textAnchor="middle" fontSize="9" fill={TXT_BLACK}>β-sheet</text>
 
-        <text x="20" y="118" fontSize="11" fill={TXT_BLACK}>3. Tertiary fold — functional 3D shape</text>
-        <ellipse cx="80" cy="138" rx="44" ry="14" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
-        <ellipse cx="96" cy="132" rx="34" ry="12" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
-        <ellipse cx="80" cy="128" rx="28" ry="10" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
-        <ellipse cx="88" cy="124" rx="18" ry="8" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
-        <text x="85" y="129" textAnchor="middle" fontSize="9" fill={TXT_BLACK}>folded</text>
-        <text x="160" y="134" fontSize="11" fill={TXT_BLACK}>shape determines function</text>
+        <text x="20" y="122" fontSize="11" fill={TXT_BLACK}>3. Tertiary fold — functional 3D shape</text>
+        <ellipse cx="80" cy="148" rx="44" ry="14" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <ellipse cx="96" cy="142" rx="34" ry="12" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <ellipse cx="80" cy="138" rx="28" ry="10" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <ellipse cx="88" cy="134" rx="18" ry="8" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
+        <text x="85" y="139" textAnchor="middle" fontSize="9" fill={TXT_BLACK}>folded</text>
+        <text x="168" y="152" fontSize="11" fill={TXT_BLACK}>shape determines function</text>
       </svg>
     </div>
   );

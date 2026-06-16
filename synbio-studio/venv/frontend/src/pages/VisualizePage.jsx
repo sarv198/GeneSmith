@@ -18,13 +18,7 @@ export default function VisualizePage({ circuit, predictResult }) {
   const gene = findPart(circuit, "gene");
   const terminator = findPart(circuit, "terminator");
 
-  const aminoAcidSequence =
-    predictResult?.amino_acid_sequence ||
-    predictResult?.prediction?.protein_yield?.amino_acid_sequence?.replace(
-      "…",
-      "",
-    ) ||
-    "";
+  const aminoAcidSequence = predictResult?.amino_acid_sequence || "";
 
   if (!circuit.length) {
     return (

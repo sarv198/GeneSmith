@@ -822,8 +822,22 @@ button.remove {
   background: #1a0a2e;
 }
 
+.circuit-helix-viewer .visualize-canvas-large {
+  background: #0f172a;
+}
+
 .part-viewer-3d .visualize-canvas-small {
   background: #0f172a;
+}
+
+.protein-structure-disclaimer {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #4b5563;
+  background: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid var(--nav-purple);
 }
 
 /* ── Buttons ── */
