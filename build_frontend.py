@@ -36,8 +36,17 @@ def main() -> None:
         shutil.rmtree(BACKEND_STATIC)
     shutil.copytree(dist, PUBLIC)
     shutil.copytree(dist, BACKEND_STATIC)
+
+    logo = BACKEND_STATIC / "genesmith-logo.png"
+    js_assets = list((BACKEND_STATIC / "assets").glob("*.js"))
+    if not logo.is_file() or not js_assets:
+        raise SystemExit(
+            "Build output is incomplete. Expected genesmith-logo.png and bundled JS assets."
+        )
+
     print(f"Copied {dist} -> {PUBLIC}")
     print(f"Copied {dist} -> {BACKEND_STATIC}")
+    print(f"Static bundle: logo={logo.name}, js={js_assets[0].name}")
 
 
 if __name__ == "__main__":

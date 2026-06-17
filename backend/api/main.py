@@ -1423,28 +1423,43 @@ def admin_job_status(job_id: str) -> dict[str, Any]:
 STATIC_DIR = PROJECT_ROOT / "static"
 
 
+def _safe_static_path(*parts: str) -> Path | None:
+    """Resolve a path inside STATIC_DIR, rejecting directory traversal."""
+    base = STATIC_DIR.resolve()
+    target = base.joinpath(*parts).resolve()
+    if base not in target.parents and target != base:
+        return None
+    return target if target.is_file() else None
+
+
 def _register_frontend_routes() -> None:
     """Serve the built Vite app from backend/static on Vercel."""
     if not STATIC_DIR.is_dir():
+        print(f"WARNING: frontend static directory missing: {STATIC_DIR}")
         return
 
     from fastapi.responses import FileResponse
-    from fastapi.staticfiles import StaticFiles
-
-    assets_dir = STATIC_DIR / "assets"
-    if assets_dir.is_dir():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="genesmith-assets")
 
     @app.get("/", include_in_schema=False)
     async def serve_frontend_root():
-        return FileResponse(STATIC_DIR / "index.html")
+        index = STATIC_DIR / "index.html"
+        if not index.is_file():
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(index)
+
+    @app.get("/assets/{asset_path:path}", include_in_schema=False)
+    async def serve_vite_asset(asset_path: str):
+        target = _safe_static_path("assets", asset_path)
+        if target is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(target)
 
     @app.get("/genesmith-logo.png", include_in_schema=False)
     async def serve_genesmith_logo():
-        logo_path = STATIC_DIR / "genesmith-logo.png"
-        if not logo_path.is_file():
+        target = _safe_static_path("genesmith-logo.png")
+        if target is None:
             raise HTTPException(status_code=404, detail="Not Found")
-        return FileResponse(logo_path, media_type="image/png")
+        return FileResponse(target, media_type="image/png")
 
 
 _register_frontend_routes()
