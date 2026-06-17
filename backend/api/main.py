@@ -1439,5 +1439,12 @@ def _register_frontend_routes() -> None:
     async def serve_frontend_root():
         return FileResponse(STATIC_DIR / "index.html")
 
+    @app.get("/genesmith-logo.png", include_in_schema=False)
+    async def serve_genesmith_logo():
+        logo_path = STATIC_DIR / "genesmith-logo.png"
+        if not logo_path.is_file():
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(logo_path, media_type="image/png")
+
 
 _register_frontend_routes()
