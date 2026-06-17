@@ -48,8 +48,12 @@ def _init_runtime() -> None:
 
 @app.middleware("http")
 async def _ensure_runtime_initialized(request: Request, call_next):
-    if request.url.path != "/health":
-        _init_runtime()
+    path = request.url.path
+    if path == "/health" or path == "/" or path.startswith("/assets/"):
+        return await call_next(request)
+    if "." in path.rsplit("/", 1)[-1]:
+        return await call_next(request)
+    _init_runtime()
     return await call_next(request)
 
 
@@ -1414,3 +1418,26 @@ def admin_job_status(job_id: str) -> dict[str, Any]:
         "output": "\n".join(output_lines[-50:]),
         "error": job["error"],
     }
+
+
+STATIC_DIR = PROJECT_ROOT / "static"
+
+
+def _register_frontend_routes() -> None:
+    """Serve the built Vite app from backend/static on Vercel."""
+    if not STATIC_DIR.is_dir():
+        return
+
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="genesmith-assets")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend_root():
+        return FileResponse(STATIC_DIR / "index.html")
+
+
+_register_frontend_routes()

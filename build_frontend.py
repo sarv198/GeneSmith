@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "synbio-studio" / "venv" / "frontend"
 PUBLIC = ROOT / "public"
+BACKEND_STATIC = ROOT / "backend" / "static"
 
 
 def run(cmd: list[str], cwd: Path) -> None:
@@ -31,8 +32,12 @@ def main() -> None:
 
     if PUBLIC.exists():
         shutil.rmtree(PUBLIC)
+    if BACKEND_STATIC.exists():
+        shutil.rmtree(BACKEND_STATIC)
     shutil.copytree(dist, PUBLIC)
+    shutil.copytree(dist, BACKEND_STATIC)
     print(f"Copied {dist} -> {PUBLIC}")
+    print(f"Copied {dist} -> {BACKEND_STATIC}")
 
 
 if __name__ == "__main__":
