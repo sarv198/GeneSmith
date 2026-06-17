@@ -18,7 +18,7 @@ from uuid import uuid4
 import numpy as np
 import pandas as pd
 import requests
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -36,15 +36,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-predictor = ExpressionPredictor()
-MODEL_PATH = "backend/prediction_engine/models/gbm_v1.pkl"
-RBS_MODEL_PATH = "backend/prediction_engine/models/rbs_gbm_v1.pkl"
-CIRCUIT_MODEL_PATH = "backend/prediction_engine/models/gbm_circuit_v1.pkl"
-PARTS_MASTER_PATH = Path("backend/data/parts_master.csv")
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+def _init_runtime() -> None:
+    global predictor, PARTS_DF, circuit_model_bundle
+    if predictor is not None:
+        return
+    predictor = ExpressionPredictor()
+    PARTS_DF = _load_parts_df()
+    circuit_model_bundle = _load_circuit_model()
+
+
+@app.middleware("http")
+async def _ensure_runtime_initialized(request: Request, call_next):
+    if request.url.path != "/health":
+        _init_runtime()
+    return await call_next(request)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+MODEL_PATH = str(PROJECT_ROOT / "prediction_engine/models/gbm_v1.pkl")
+RBS_MODEL_PATH = str(PROJECT_ROOT / "prediction_engine/models/rbs_gbm_v1.pkl")
+CIRCUIT_MODEL_PATH = str(PROJECT_ROOT / "prediction_engine/models/gbm_circuit_v1.pkl")
+PARTS_MASTER_PATH = PROJECT_ROOT / "data/parts_master.csv"
 
 JOBS: dict[str, dict[str, Any]] = {}
 circuit_model_bundle: dict[str, Any] | None = None
+predictor: ExpressionPredictor | None = None
+PARTS_DF: pd.DataFrame | None = None
 
 DEFAULT_CIRCUIT = [
     {
@@ -95,7 +117,11 @@ def _load_parts_df() -> pd.DataFrame | None:
     if not PARTS_MASTER_PATH.exists():
         print(f"WARNING: {PARTS_MASTER_PATH} not found — parts library unavailable")
         return None
-    df = pd.read_csv(PARTS_MASTER_PATH)
+    try:
+        df = pd.read_csv(PARTS_MASTER_PATH)
+    except Exception as exc:
+        print(f"WARNING: Could not load parts library ({exc})")
+        return None
     for column in ("pdb_id", "uniprot_id"):
         if column not in df.columns:
             df[column] = pd.NA
@@ -606,8 +632,10 @@ def _assemble_dna_structure_from_parts(
     }
 
 
-PARTS_DF: pd.DataFrame | None = _load_parts_df()
-circuit_model_bundle = _load_circuit_model()
+def _require_predictor() -> ExpressionPredictor:
+    _init_runtime()
+    assert predictor is not None
+    return predictor
 
 
 class Part(BaseModel):
@@ -743,6 +771,7 @@ def _find_part(parts: list[dict[str, Any]], part_type: str) -> dict[str, Any] | 
 
 
 def _predict_with_validation(parts: list[dict[str, Any]]) -> dict[str, Any]:
+    active_predictor = _require_predictor()
     status = _validate_and_classify(parts)
     flags = status["flags"]
 
@@ -751,13 +780,17 @@ def _predict_with_validation(parts: list[dict[str, Any]]) -> dict[str, Any]:
     cds = _find_part(parts, "cds")
     terminator = _find_part(parts, "terminator")
 
-    promoter_rpu = round(predictor._predict_promoter(str(promoter.get("sequence", ""))), 4)
+    promoter_rpu = round(
+        active_predictor._predict_promoter(str(promoter.get("sequence", ""))), 4
+    )
 
     translation_rate: float | None = None
     translation_model = None
     if flags["rbs"] and rbs:
-        translation_rate = round(predictor._predict_rbs(str(rbs.get("sequence", ""))), 4)
-        translation_model = "RBS-GBM-v1" if predictor.rbs_model else "default"
+        translation_rate = round(
+            active_predictor._predict_rbs(str(rbs.get("sequence", ""))), 4
+        )
+        translation_model = "RBS-GBM-v1" if active_predictor.rbs_model else "default"
     elif not flags["rbs"]:
         translation_rate = None
 
@@ -793,7 +826,7 @@ def _predict_with_validation(parts: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "expression_level": protein_yield_value,
         "unit": "relative_yield" if protein_yield_value is not None else None,
-        "model": predictor.mode,
+        "model": active_predictor.mode,
         "promoter_strength": {"rpu": promoter_rpu, "unit": "RPU"},
         "translation_rate": (
             {
@@ -947,6 +980,9 @@ def recommend_parts(trait: str) -> list[dict[str, Any]]:
     return results
 
 
+REPO_ROOT = PROJECT_ROOT.parent
+
+
 def _run_subprocess_job(job_id: str, commands: list[list[str]]) -> None:
     job = JOBS[job_id]
     buffer = job["output_buffer"]
@@ -955,7 +991,7 @@ def _run_subprocess_job(job_id: str, commands: list[list[str]]) -> None:
             buffer.write(f"$ {' '.join(cmd)}\n")
             proc = subprocess.Popen(
                 cmd,
-                cwd=str(PROJECT_ROOT),
+                cwd=str(REPO_ROOT),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -1004,16 +1040,17 @@ def _reload_runtime_state() -> None:
 
 @app.get("/model/status")
 def model_status() -> dict[str, Any]:
+    active_predictor = _require_predictor()
     return {
-        "model_loaded": predictor.promoter_model is not None,
-        "rbs_model_loaded": predictor.rbs_model is not None,
+        "model_loaded": active_predictor.promoter_model is not None,
+        "rbs_model_loaded": active_predictor.rbs_model is not None,
         "circuit_model_loaded": circuit_model_bundle is not None,
-        "mode": predictor.mode,
+        "mode": active_predictor.mode,
         "promoter_model_path": MODEL_PATH,
         "rbs_model_path": RBS_MODEL_PATH,
         "circuit_model_path": CIRCUIT_MODEL_PATH,
-        "promoter_features_count": len(predictor.promoter_feature_names),
-        "rbs_features_count": len(predictor.rbs_feature_names),
+        "promoter_features_count": len(active_predictor.promoter_feature_names),
+        "rbs_features_count": len(active_predictor.rbs_feature_names),
         "parts_count": len(PARTS_DF) if PARTS_DF is not None else 0,
     }
 
@@ -1333,10 +1370,8 @@ def admin_retrain(body: RetrainRequest | None = None) -> dict[str, Any]:
             models_queued.append("rbs")
 
     if "circuit" in requested:
-        build_script = PROJECT_ROOT / "backend" / "data" / "build_circuit_training.py"
-        train_circuit_script = (
-            PROJECT_ROOT / "backend" / "prediction_engine" / "train_circuit.py"
-        )
+        build_script = PROJECT_ROOT / "data" / "build_circuit_training.py"
+        train_circuit_script = PROJECT_ROOT / "prediction_engine" / "train_circuit.py"
         if build_script.exists():
             commands.append([sys.executable, "-m", "backend.data.build_circuit_training"])
         if train_circuit_script.exists():

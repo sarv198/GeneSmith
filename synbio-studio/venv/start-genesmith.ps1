@@ -9,12 +9,14 @@ if (Get-Command py -ErrorAction SilentlyContinue) {
 }
 if (-not $Python) { $Python = "python" }
 
+$RepoRoot = (Resolve-Path "$Root\..\..").Path
+
 Write-Host "Using Python: $Python"
 Write-Host "Starting GeneSmith backend on http://127.0.0.1:8000 ..."
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-Command",
-    "cd '$Root'; & '$Python' -m uvicorn backend.api.main:app --reload --port 8000"
+    "cd '$RepoRoot'; & '$Python' -m uvicorn backend.api.main:app --reload --port 8000"
 )
 
 Start-Sleep -Seconds 3

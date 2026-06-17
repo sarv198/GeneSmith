@@ -3,29 +3,29 @@ synbio-studio/venv/frontend/node_modules
 synbio-studio/venv/frontend/dist
 
 # Raw iGEM dump — only used by offline fetch scripts, not runtime API
-synbio-studio/venv/backend/data/igem_parts_raw.xml
-synbio-studio/venv/backend/data/igem_parts_raw.xml.gz
+backend/data/igem_parts_raw.xml
+backend/data/igem_parts_raw.xml.gz
 
 # DB migrations / dev tooling — not needed at runtime
 synbio-studio/venv/alembic
 
 # Offline training/fetch scripts and datasets not used by the API
-synbio-studio/venv/backend/data/fetch_*.py
-synbio-studio/venv/backend/data/build_circuit_training.py
-synbio-studio/venv/backend/data/combine_datasets.py
-synbio-studio/venv/backend/data/seed_*.py
-synbio-studio/venv/backend/data/verify_apis.py
-synbio-studio/venv/backend/data/_sampling.py
-synbio-studio/venv/backend/data/anderson_promoters.csv
-synbio-studio/venv/backend/data/circuit_training.csv
-synbio-studio/venv/backend/data/igem_parts_full.csv
-synbio-studio/venv/backend/data/ncbi_promoters.csv
-synbio-studio/venv/backend/data/promoter_training_final.csv
-synbio-studio/venv/backend/data/regulondb_promoters.csv
-synbio-studio/venv/backend/data/salis_rbs_clean.csv
-synbio-studio/venv/backend/data/salis_rbs_raw.csv
-synbio-studio/venv/backend/data/urtecho_promoters.csv
-synbio-studio/venv/backend/tests
+backend/data/fetch_*.py
+backend/data/build_circuit_training.py
+backend/data/combine_datasets.py
+backend/data/seed_*.py
+backend/data/verify_apis.py
+backend/data/_sampling.py
+backend/data/anderson_promoters.csv
+backend/data/circuit_training.csv
+backend/data/igem_parts_full.csv
+backend/data/ncbi_promoters.csv
+backend/data/promoter_training_final.csv
+backend/data/regulondb_promoters.csv
+backend/data/salis_rbs_clean.csv
+backend/data/salis_rbs_raw.csv
+backend/data/urtecho_promoters.csv
+backend/tests
 
 # Python bytecode
 **/__pycache__

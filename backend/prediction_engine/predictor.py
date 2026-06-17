@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import os
 import pickle
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from backend.prediction_engine.features import extract_features
 
-PROMOTER_MODEL_PATH = "backend/prediction_engine/models/gbm_v1.pkl"
-RBS_MODEL_PATH = "backend/prediction_engine/models/rbs_gbm_v1.pkl"
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+PROMOTER_MODEL_PATH = str(_BACKEND_ROOT / "prediction_engine/models/gbm_v1.pkl")
+RBS_MODEL_PATH = str(_BACKEND_ROOT / "prediction_engine/models/rbs_gbm_v1.pkl")
 
 KNOWN_RPU = {
     "BBa_J23100": 1.00,

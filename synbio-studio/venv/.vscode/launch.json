@@ -14,7 +14,7 @@
       "name": "Seed Database",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/synbio-studio/venv/backend/data/seed_igem.py"
+      "program": "${workspaceFolder}/backend/data/seed_igem.py"
     }
   ]
 }
