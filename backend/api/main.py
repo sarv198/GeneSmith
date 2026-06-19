@@ -202,8 +202,77 @@ def _build_circuit_svg(parts_detail: list[dict[str, Any]]) -> str:
     )
 
 
+NEAREST_MATCH_DISCLAIMER = "Nearest match for protein structure."
+
+
 def _clean_amino_acid_sequence(amino_acid_sequence: str) -> str:
     return "".join(c for c in amino_acid_sequence.upper() if c.isalpha())
+
+
+def _cds_part_from_circuit_parts(
+    parts: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    if not parts:
+        return None
+    return _find_part(parts, "cds")
+
+
+def _resolve_protein_sequence(
+    amino_acid_sequence: str,
+    part_id: str | None,
+    parts: list[dict[str, Any]] | None = None,
+) -> tuple[str, str | None]:
+    """Resolve an amino acid sequence and CDS part_id from the request."""
+    seq = _clean_amino_acid_sequence(amino_acid_sequence)
+    resolved_part_id = part_id
+
+    if not seq and parts:
+        cds_part = _cds_part_from_circuit_parts(parts)
+        if cds_part is not None:
+            resolved_part_id = resolved_part_id or str(cds_part.get("part_id", "")) or None
+            seq = _clean_amino_acid_sequence(
+                _translate_dna(str(cds_part.get("sequence", "")))
+            )
+            if not seq and resolved_part_id:
+                seq = _clean_amino_acid_sequence(_sequence_from_part_id(resolved_part_id))
+
+    if not seq and part_id:
+        seq = _clean_amino_acid_sequence(_sequence_from_part_id(part_id))
+
+    return seq, resolved_part_id
+
+
+def _find_best_library_cds_structure() -> dict[str, Any] | None:
+    """Fallback AlphaFold structure from the parts library used by prediction models."""
+    if PARTS_DF is None:
+        return None
+
+    preferred_ids = ["BBa_E0040", "BBa_E0030", "BBa_E0020"]
+    for preferred_id in preferred_ids:
+        row = _lookup_part_row(preferred_id)
+        if row is not None:
+            match = _alphafold_match_from_cds_row(
+                row,
+                match_type="closest",
+                identity=None,
+            )
+            if match:
+                return match
+
+    cds_mask = PARTS_DF["part_type"].apply(
+        lambda t: _normalize_type(str(t)) == "cds",
+    )
+    for _, row in PARTS_DF.loc[cds_mask].iterrows():
+        if not _is_present(row.get("uniprot_id")):
+            continue
+        match = _alphafold_match_from_cds_row(
+            row,
+            match_type="closest",
+            identity=None,
+        )
+        if match:
+            return match
+    return None
 
 
 def _sequence_similarity(a: str, b: str) -> float:
@@ -275,15 +344,10 @@ def _alphafold_match_from_cds_row(
         "matched_part_id": str(row.get("part_id", "")),
         "disclaimer": None,
     }
-    if match_type == "closest" and identity is not None:
-        pct = round(identity * 100, 1)
-        result["match_identity"] = pct
-        result["disclaimer"] = (
-            "An exact AlphaFold model for your predicted amino acid sequence "
-            "is unavailable. Showing the closest available AlphaFold structure "
-            f"({part_name}, {pct:g}% sequence similarity) - "
-            "the nearest accurate structural depiction for your circuit."
-        )
+    if match_type == "closest":
+        if identity is not None:
+            result["match_identity"] = round(identity * 100, 1)
+        result["disclaimer"] = NEAREST_MATCH_DISCLAIMER
     return result
 
 
@@ -683,6 +747,8 @@ class DnaStructureRequest(BaseModel):
 class ProteinStructureRequest(BaseModel):
     amino_acid_sequence: str = ""
     part_id: str | None = None
+    parts: list[DnaStructurePart] | None = None
+    protein_can_be_produced: bool | None = None
 
 
 PART_TYPE_COLORS = {
@@ -1202,14 +1268,14 @@ def circuit_dna_structure(body: DnaStructureRequest) -> dict[str, Any]:
 
 @app.post("/circuits/protein-structure")
 def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
-    seq = _clean_amino_acid_sequence(body.amino_acid_sequence)
-    if not seq and body.part_id:
-        seq = _clean_amino_acid_sequence(_sequence_from_part_id(body.part_id))
-    if not seq:
-        raise HTTPException(
-            status_code=422,
-            detail={"error": "A valid amino acid sequence or CDS part_id is required"},
-        )
+    circuit_parts = (
+        [p.model_dump() for p in body.parts] if body.parts else None
+    )
+    seq, resolved_part_id = _resolve_protein_sequence(
+        body.amino_acid_sequence,
+        body.part_id,
+        circuit_parts,
+    )
 
     uniprot_id: str | None = None
     pdb_url: str | None = None
@@ -1220,6 +1286,7 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
     matched_protein_name: str | None = None
     matched_part_id: str | None = None
     disclaimer: str | None = None
+    force_nearest = body.protein_can_be_produced is False
 
     def _apply_structure_result(result: dict[str, Any]) -> None:
         nonlocal pdb_url, pdb_content, uniprot_id, source, match_type
@@ -1234,55 +1301,83 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
         matched_part_id = result.get("matched_part_id")
         disclaimer = result.get("disclaimer")
 
-    uniprot_id = _search_uniprot_by_sequence(seq)
-    if uniprot_id:
-        candidate_url = _fetch_alphafold_pdb_url(uniprot_id)
-        if candidate_url:
-            _apply_structure_result(
-                {
-                    "pdb_url": candidate_url,
-                    "pdb_content": _fetch_pdb_text(candidate_url),
-                    "uniprot_id": uniprot_id,
-                    "source": "alphafold",
-                    "match_type": "exact",
-                }
+    if not seq:
+        fallback = _find_best_library_cds_structure()
+        if fallback:
+            _apply_structure_result(fallback)
+            if not disclaimer:
+                disclaimer = NEAREST_MATCH_DISCLAIMER
+                match_type = "closest"
+        if not pdb_url and not pdb_content:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": (
+                        "Add a gene/CDS part to resolve a protein structure, "
+                        "or provide an amino acid sequence."
+                    )
+                },
             )
+    else:
+        if not force_nearest:
+            uniprot_id = _search_uniprot_by_sequence(seq)
+            if uniprot_id:
+                candidate_url = _fetch_alphafold_pdb_url(uniprot_id)
+                if candidate_url:
+                    _apply_structure_result(
+                        {
+                            "pdb_url": candidate_url,
+                            "pdb_content": _fetch_pdb_text(candidate_url),
+                            "uniprot_id": uniprot_id,
+                            "source": "alphafold",
+                            "match_type": "exact",
+                        }
+                    )
 
-    if not pdb_url and body.part_id:
-        circuit_row = _lookup_part_row(body.part_id)
-        if circuit_row is not None and _normalize_type(str(circuit_row.get("part_type", ""))) == "cds":
-            circuit_aa = _translate_dna(str(circuit_row.get("sequence", "")))
-            identity = _sequence_similarity(seq, circuit_aa) if circuit_aa else 0.0
-            homolog = _alphafold_match_from_cds_row(
-                circuit_row,
-                match_type="closest" if identity < 0.98 else "exact",
-                identity=identity if identity < 0.98 else None,
-            )
-            if homolog:
-                _apply_structure_result(homolog)
-
-    if not pdb_url:
-        closest = _find_closest_alphafold_match(seq, body.part_id)
-        if closest:
-            closest_row = _lookup_part_row(str(closest["part_id"]))
-            if closest_row is not None:
+        if not pdb_url and resolved_part_id:
+            circuit_row = _lookup_part_row(resolved_part_id)
+            if circuit_row is not None and _normalize_type(
+                str(circuit_row.get("part_type", ""))
+            ) == "cds":
+                circuit_aa = _translate_dna(str(circuit_row.get("sequence", "")))
+                identity = _sequence_similarity(seq, circuit_aa) if circuit_aa else 0.0
                 homolog = _alphafold_match_from_cds_row(
-                    closest_row,
-                    match_type="closest",
-                    identity=float(closest["identity"]),
+                    circuit_row,
+                    match_type="closest"
+                    if force_nearest or identity < 0.98
+                    else "exact",
+                    identity=identity if identity < 0.98 else None,
                 )
                 if homolog:
                     _apply_structure_result(homolog)
 
+        if not pdb_url:
+            closest = _find_closest_alphafold_match(seq, resolved_part_id)
+            if closest:
+                closest_row = _lookup_part_row(str(closest["part_id"]))
+                if closest_row is not None:
+                    homolog = _alphafold_match_from_cds_row(
+                        closest_row,
+                        match_type="closest",
+                        identity=float(closest["identity"]),
+                    )
+                    if homolog:
+                        _apply_structure_result(homolog)
+
+        if not pdb_url and not pdb_content and not force_nearest:
+            pdb_content = _fetch_esmfold_pdb(seq)
+            if pdb_content:
+                source = "esmfold"
+                match_type = "predicted"
+                disclaimer = NEAREST_MATCH_DISCLAIMER
+
     if not pdb_url and not pdb_content:
-        pdb_content = _fetch_esmfold_pdb(seq)
-        if pdb_content:
-            source = "esmfold"
-            match_type = "predicted"
-            disclaimer = (
-                "No close AlphaFold homolog was found. Showing an ESMFold prediction "
-                "computed directly from your amino acid sequence."
-            )
+        fallback = _find_best_library_cds_structure()
+        if fallback:
+            _apply_structure_result(fallback)
+            if not disclaimer:
+                disclaimer = NEAREST_MATCH_DISCLAIMER
+                match_type = "closest"
 
     if not pdb_url and not pdb_content:
         raise HTTPException(
@@ -1290,11 +1385,15 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
             detail={"error": "Could not resolve a 3D structure for this protein sequence"},
         )
 
+    if force_nearest and match_type == "exact":
+        match_type = "closest"
+        disclaimer = NEAREST_MATCH_DISCLAIMER
+
     if pdb_url and not pdb_content:
         pdb_content = _fetch_pdb_text(pdb_url)
 
     return {
-        "amino_acid_sequence": seq,
+        "amino_acid_sequence": seq or "",
         "amino_acid_length": len(seq),
         "pdb_url": pdb_url,
         "pdb_content": pdb_content,
@@ -1305,7 +1404,7 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
         "matched_protein_name": matched_protein_name,
         "matched_part_id": matched_part_id,
         "disclaimer": disclaimer,
-        "part_id": body.part_id,
+        "part_id": resolved_part_id,
     }
 
 
@@ -1325,11 +1424,15 @@ def predict_circuit(body: PredictRequest) -> dict[str, Any]:
     cds_part = _find_part(parts, "cds")
     if cds_part:
         amino_acid_sequence = _translate_dna(str(cds_part.get("sequence", "")))
+    protein_can_be_produced = (
+        prediction.get("protein_yield", {}) or {}
+    ).get("relative_yield") is not None
     return {
         "parts": [part["part_id"] for part in parts],
         "parts_detail": parts_detail,
         "circuit_svg": circuit_svg,
         "amino_acid_sequence": amino_acid_sequence,
+        "protein_can_be_produced": protein_can_be_produced,
         "prediction": prediction,
     }
 

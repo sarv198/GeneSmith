@@ -36,17 +36,47 @@ function AminoAcidSequence({ sequence }) {
   );
 }
 
-function buildStructurePayload(sequence, genePart) {
+function buildStructurePayload(sequence, genePart, circuit, proteinCanBeProduced) {
+  const parts = (circuit || []).map(({ part_id, part_type, sequence: dna }) => ({
+    part_id,
+    part_type,
+    sequence: dna || "",
+  }));
+
+  const payload = {
+    parts,
+    protein_can_be_produced: proteinCanBeProduced,
+  };
+
   if (sequence) {
     return {
+      ...payload,
       amino_acid_sequence: sequence,
       part_id: genePart?.part_id || null,
     };
   }
   if (genePart?.part_id) {
     return {
+      ...payload,
       amino_acid_sequence: "",
       part_id: genePart.part_id,
+    };
+  }
+  const cdsPart = (circuit || []).find((part) =>
+    ["cds", "gene"].includes((part.part_type || "").toLowerCase()),
+  );
+  if (cdsPart?.part_id) {
+    return {
+      ...payload,
+      amino_acid_sequence: "",
+      part_id: cdsPart.part_id,
+    };
+  }
+  if (parts.length > 0) {
+    return {
+      ...payload,
+      amino_acid_sequence: "",
+      part_id: null,
     };
   }
   return null;
@@ -55,6 +85,8 @@ function buildStructurePayload(sequence, genePart) {
 export default function ProteinViewer3D({
   aminoAcidSequence,
   genePart,
+  circuit = [],
+  proteinCanBeProduced = null,
   large = false,
 }) {
   const [structureData, setStructureData] = useState(null);
@@ -71,10 +103,20 @@ export default function ProteinViewer3D({
   const matchType = structureData?.match_type;
   const disclaimer = structureData?.disclaimer;
   const hasStructure = Boolean(pdbContent || pdbUrl);
-  const requestKey = `${aminoAcidSequence || ""}|${genePart?.part_id || ""}`;
+  const requestKey = [
+    aminoAcidSequence || "",
+    genePart?.part_id || "",
+    proteinCanBeProduced ?? "",
+    (circuit || []).map((p) => `${p.part_id}:${p.sequence || ""}`).join("|"),
+  ].join("::");
 
   useEffect(() => {
-    const payload = buildStructurePayload(aminoAcidSequence, genePart);
+    const payload = buildStructurePayload(
+      aminoAcidSequence,
+      genePart,
+      circuit,
+      proteinCanBeProduced,
+    );
     if (!payload) {
       setStructureData(null);
       setLoading(false);
@@ -183,10 +225,10 @@ export default function ProteinViewer3D({
   }
   if (matchType === "exact" && source === "alphafold") {
     subtitleParts.push("AlphaFold confidence coloring");
-  } else if (matchType === "closest" && source === "alphafold") {
-    subtitleParts.push("Closest AlphaFold homolog");
+  } else if (matchType === "closest" || matchType === "predicted") {
+    subtitleParts.push("Nearest match");
   } else if (source === "esmfold") {
-    subtitleParts.push("ESMFold structure prediction");
+    subtitleParts.push("Structure prediction");
   }
 
   const showCanvas = !loading && hasStructure;
@@ -216,8 +258,7 @@ export default function ProteinViewer3D({
 
       {!loading && !hasStructure && !loadError && (
         <p className="viewer-hint">
-          Add a gene/CDS part and run Predict on the Build page to generate a
-          protein sequence.
+          Add a gene/CDS part to your circuit to view a protein structure.
         </p>
       )}
 

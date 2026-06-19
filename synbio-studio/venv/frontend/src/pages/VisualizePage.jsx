@@ -19,6 +19,9 @@ export default function VisualizePage({ circuit, predictResult }) {
   const terminator = findPart(circuit, "terminator");
 
   const aminoAcidSequence = predictResult?.amino_acid_sequence || "";
+  const proteinCanBeProduced =
+    predictResult?.protein_can_be_produced ??
+    (gene && !rbs ? false : null);
 
   if (!circuit.length) {
     return (
@@ -49,6 +52,8 @@ export default function VisualizePage({ circuit, predictResult }) {
         <ProteinViewer3D
           aminoAcidSequence={aminoAcidSequence}
           genePart={gene}
+          circuit={circuit}
+          proteinCanBeProduced={proteinCanBeProduced}
           large
         />
       </div>
