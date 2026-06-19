@@ -1630,6 +1630,11 @@ def _safe_static_file(relative_path: str) -> Path | None:
 
 
 def _register_frontend_routes() -> None:
+    # On Vercel, public/ is served from the CDN. These routes would intercept
+    # /assets/* and return 404 because the build output is not in the Python bundle.
+    if os.environ.get("VERCEL"):
+        return
+
     from fastapi.responses import FileResponse
 
     @app.get("/", include_in_schema=False)
@@ -1637,7 +1642,10 @@ def _register_frontend_routes() -> None:
         index = STATIC_DIR / "index.html"
         if not index.is_file():
             raise HTTPException(status_code=404, detail="Not Found")
-        return FileResponse(index)
+        return FileResponse(
+            index,
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/assets/{asset_path:path}", include_in_schema=False)
     async def serve_frontend_asset(asset_path: str):

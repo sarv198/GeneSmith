@@ -30,12 +30,14 @@ def main() -> None:
     if not DIST.exists():
         raise SystemExit(f"Build output not found: {DIST}")
 
-    logo = DIST / "genesmith-logo.png"
     js_assets = list((DIST / "assets").glob("*.js"))
     css_assets = list((DIST / "assets").glob("*.css"))
-    if not logo.is_file() or not js_assets or not css_assets:
+    logo_ok = (DIST / "genesmith-logo.png").is_file() or list(
+        (DIST / "assets").glob("genesmith-logo*.png")
+    )
+    if not logo_ok or not js_assets or not css_assets:
         raise SystemExit(
-            "Build output is incomplete. Expected genesmith-logo.png, JS, and CSS in dist/."
+            "Build output is incomplete. Expected logo, JS, and CSS in dist/."
         )
 
     for target in (PUBLIC, STATIC):
@@ -46,7 +48,7 @@ def main() -> None:
     print(f"Frontend build OK: {DIST}")
     print(f"Copied dist -> {PUBLIC}")
     print(f"Copied dist -> {STATIC}")
-    print(f"  logo={logo.name}, js={js_assets[0].name}, css={css_assets[0].name}")
+    print(f"  js={js_assets[0].name}, css={css_assets[0].name}")
 
 
 if __name__ == "__main__":
