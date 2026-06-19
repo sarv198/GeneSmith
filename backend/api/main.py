@@ -242,6 +242,29 @@ def _resolve_protein_sequence(
     return seq, resolved_part_id
 
 
+def _bundled_fallback_structure() -> dict[str, Any] | None:
+    """Offline GFP structure used when remote structure APIs are unavailable."""
+    path = PROJECT_ROOT / "data/fallbacks/gfp.pdb"
+    if not path.is_file():
+        return None
+    try:
+        pdb_content = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not pdb_content.strip():
+        return None
+    return {
+        "pdb_url": None,
+        "pdb_content": pdb_content,
+        "uniprot_id": "P42212",
+        "source": "bundled",
+        "match_type": "closest",
+        "matched_protein_name": "Green fluorescent protein (GFP)",
+        "matched_part_id": "BBa_E0040",
+        "disclaimer": NEAREST_MATCH_DISCLAIMER,
+    }
+
+
 def _find_best_library_cds_structure() -> dict[str, Any] | None:
     """Fallback AlphaFold structure from the parts library used by prediction models."""
     if PARTS_DF is None:
@@ -256,7 +279,7 @@ def _find_best_library_cds_structure() -> dict[str, Any] | None:
                 match_type="closest",
                 identity=None,
             )
-            if match:
+            if match and match.get("pdb_content"):
                 return match
 
     cds_mask = PARTS_DF["part_type"].apply(
@@ -270,7 +293,7 @@ def _find_best_library_cds_structure() -> dict[str, Any] | None:
             match_type="closest",
             identity=None,
         )
-        if match:
+        if match and match.get("pdb_content"):
             return match
     return None
 
@@ -333,6 +356,8 @@ def _alphafold_match_from_cds_row(
     if not pdb_url:
         return None
     pdb_content = _fetch_pdb_text(pdb_url)
+    if not pdb_content:
+        return None
     part_name = str(row.get("name", row.get("part_id", "")))
     result: dict[str, Any] = {
         "pdb_url": pdb_url,
@@ -1302,7 +1327,7 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
         disclaimer = result.get("disclaimer")
 
     if not seq:
-        fallback = _find_best_library_cds_structure()
+        fallback = _find_best_library_cds_structure() or _bundled_fallback_structure()
         if fallback:
             _apply_structure_result(fallback)
             if not disclaimer:
@@ -1310,7 +1335,7 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
                 match_type = "closest"
         if not pdb_url and not pdb_content:
             raise HTTPException(
-                status_code=422,
+                status_code=503,
                 detail={
                     "error": (
                         "Add a gene/CDS part to resolve a protein structure, "
@@ -1364,7 +1389,7 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
                     if homolog:
                         _apply_structure_result(homolog)
 
-        if not pdb_url and not pdb_content and not force_nearest:
+        if not pdb_url and not pdb_content:
             pdb_content = _fetch_esmfold_pdb(seq)
             if pdb_content:
                 source = "esmfold"
@@ -1372,7 +1397,7 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
                 disclaimer = NEAREST_MATCH_DISCLAIMER
 
     if not pdb_url and not pdb_content:
-        fallback = _find_best_library_cds_structure()
+        fallback = _find_best_library_cds_structure() or _bundled_fallback_structure()
         if fallback:
             _apply_structure_result(fallback)
             if not disclaimer:
@@ -1381,8 +1406,8 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
 
     if not pdb_url and not pdb_content:
         raise HTTPException(
-            status_code=404,
-            detail={"error": "Could not resolve a 3D structure for this protein sequence"},
+            status_code=503,
+            detail={"error": "Protein structure data is temporarily unavailable"},
         )
 
     if force_nearest and match_type == "exact":
