@@ -1,3 +1,5 @@
+import logoUrl from "../assets/genesmith-logo.png";
+
 const NAV_ITEMS = [
   { id: "theory", label: "Theory" },
   { id: "visualize", label: "Visualize" },
@@ -12,7 +14,7 @@ export default function Navbar({ activePage, onNavigate }) {
         onClick={() => onNavigate("home")}
         aria-label="GeneSmith home"
       >
-        <img src="/genesmith-logo.png" alt="GeneSmith" className="navbar-logo" />
+        <img src={logoUrl} alt="GeneSmith" className="navbar-logo" />
       </button>
 
       <div className="navbar-links">

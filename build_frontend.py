@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "synbio-studio" / "venv" / "frontend"
 DIST = FRONTEND / "dist"
+PUBLIC = ROOT / "public"
 STATIC = ROOT / "static"
 
 
@@ -37,11 +38,13 @@ def main() -> None:
             "Build output is incomplete. Expected genesmith-logo.png, JS, and CSS in dist/."
         )
 
-    if STATIC.exists():
-        shutil.rmtree(STATIC)
-    shutil.copytree(DIST, STATIC)
+    for target in (PUBLIC, STATIC):
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(DIST, target)
 
     print(f"Frontend build OK: {DIST}")
+    print(f"Copied dist -> {PUBLIC}")
     print(f"Copied dist -> {STATIC}")
     print(f"  logo={logo.name}, js={js_assets[0].name}, css={css_assets[0].name}")
 

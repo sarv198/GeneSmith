@@ -20,11 +20,14 @@ function CircuitMapLegend({ parts }) {
 
   return (
     <div className="circuit-map-legend">
-      {parts.map((part) => {
+      {parts.map((part, index) => {
         const type = normalizeType(part.part_type);
         const style = PART_LEGEND[type] || { color: "#cccccc", label: type || "Part" };
         return (
-          <div key={`${part.part_id}-${type}`} className="circuit-map-legend-item">
+          <div
+            key={`${index}-${part.part_id}-${type}`}
+            className="circuit-map-legend-item"
+          >
             <span
               className="circuit-map-legend-swatch"
               style={{ background: style.color }}

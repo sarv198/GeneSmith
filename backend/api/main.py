@@ -1579,7 +1579,22 @@ def admin_job_status(job_id: str) -> dict[str, Any]:
 REPO_ROOT = Path(
     os.environ.get("GENESMITH_PROJECT_ROOT", Path(__file__).resolve().parents[2])
 )
-STATIC_DIR = REPO_ROOT / "static"
+
+
+def _frontend_dist_dir() -> Path:
+    """Locate the built Vite bundle for local / single-origin serving."""
+    for relative in (
+        "public",
+        "static",
+        "synbio-studio/venv/frontend/dist",
+    ):
+        candidate = REPO_ROOT / relative
+        if (candidate / "index.html").is_file():
+            return candidate
+    return REPO_ROOT / "public"
+
+
+STATIC_DIR = _frontend_dist_dir()
 _API_PATH_PREFIXES = (
     "parts",
     "circuits",
@@ -1633,6 +1648,13 @@ def _register_frontend_routes() -> None:
 
     @app.get("/genesmith-logo.png", include_in_schema=False)
     async def serve_frontend_logo():
+        target = _safe_static_file("genesmith-logo.png")
+        if target is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(target, media_type="image/png")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def serve_favicon():
         target = _safe_static_file("genesmith-logo.png")
         if target is None:
             raise HTTPException(status_code=404, detail="Not Found")
