@@ -12,6 +12,8 @@ FRONTEND = ROOT / "synbio-studio" / "venv" / "frontend"
 DIST = FRONTEND / "dist"
 PUBLIC = ROOT / "public"
 STATIC = ROOT / "static"
+# Bundled with the Python app on Vercel (lives next to other runtime data).
+FRONTEND_BUNDLE = ROOT / "backend" / "data" / "frontend_dist"
 
 
 def run(cmd: list[str], cwd: Path) -> None:
@@ -40,7 +42,7 @@ def main() -> None:
             "Build output is incomplete. Expected logo, JS, and CSS in dist/."
         )
 
-    for target in (PUBLIC, STATIC):
+    for target in (PUBLIC, STATIC, FRONTEND_BUNDLE):
         if target.exists():
             shutil.rmtree(target)
         shutil.copytree(DIST, target)
@@ -48,6 +50,7 @@ def main() -> None:
     print(f"Frontend build OK: {DIST}")
     print(f"Copied dist -> {PUBLIC}")
     print(f"Copied dist -> {STATIC}")
+    print(f"Copied dist -> {FRONTEND_BUNDLE}")
     print(f"  js={js_assets[0].name}, css={css_assets[0].name}")
 
 

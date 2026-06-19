@@ -1582,8 +1582,9 @@ REPO_ROOT = Path(
 
 
 def _frontend_dist_dir() -> Path:
-    """Locate the built Vite bundle for local / single-origin serving."""
+    """Locate the built Vite bundle (same build output everywhere)."""
     for relative in (
+        "backend/data/frontend_dist",
         "public",
         "static",
         "synbio-studio/venv/frontend/dist",
@@ -1591,7 +1592,7 @@ def _frontend_dist_dir() -> Path:
         candidate = REPO_ROOT / relative
         if (candidate / "index.html").is_file():
             return candidate
-    return REPO_ROOT / "public"
+    return REPO_ROOT / "backend" / "data" / "frontend_dist"
 
 
 STATIC_DIR = _frontend_dist_dir()
@@ -1630,11 +1631,6 @@ def _safe_static_file(relative_path: str) -> Path | None:
 
 
 def _register_frontend_routes() -> None:
-    # On Vercel, public/ is served from the CDN. These routes would intercept
-    # /assets/* and return 404 because the build output is not in the Python bundle.
-    if os.environ.get("VERCEL"):
-        return
-
     from fastapi.responses import FileResponse
 
     @app.get("/", include_in_schema=False)
@@ -1644,6 +1640,7 @@ def _register_frontend_routes() -> None:
             raise HTTPException(status_code=404, detail="Not Found")
         return FileResponse(
             index,
+            media_type="text/html",
             headers={"Cache-Control": "no-cache"},
         )
 

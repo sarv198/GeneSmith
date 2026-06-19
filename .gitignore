@@ -1,4 +1,5 @@
 # Local build artifacts (static/ is built on deploy and served by FastAPI + CDN)
 public/
 backend/static/
+backend/data/frontend_dist/
 static/
