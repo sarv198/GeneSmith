@@ -102,6 +102,8 @@ export default function ProteinViewer3D({
   const source = structureData?.source;
   const matchType = structureData?.match_type;
   const disclaimer = structureData?.disclaimer;
+  const matchedName = structureData?.matched_protein_name;
+  const matchIdentity = structureData?.match_identity;
   const hasStructure = Boolean(pdbContent || pdbUrl);
   const requestKey = [
     aminoAcidSequence || "",
@@ -130,7 +132,7 @@ export default function ProteinViewer3D({
     setStructureData(null);
 
     api
-      .post("/circuits/protein-structure", payload)
+      .post("/circuits/protein-structure", payload, { timeout: 120000 })
       .then(({ data }) => {
         if (!cancelled) setStructureData(data);
       })
@@ -227,6 +229,12 @@ export default function ProteinViewer3D({
     subtitleParts.push("AlphaFold confidence coloring");
   } else if (matchType === "closest" || matchType === "predicted") {
     subtitleParts.push("Nearest match");
+    if (matchedName) {
+      subtitleParts.push(matchedName);
+    }
+    if (matchIdentity != null) {
+      subtitleParts.push(`${matchIdentity}% sequence identity`);
+    }
   } else if (source === "esmfold") {
     subtitleParts.push("Structure prediction");
   }

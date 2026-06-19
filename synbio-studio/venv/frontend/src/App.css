@@ -59,7 +59,7 @@ strong,
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 3.75rem 2rem 2.5rem;
+  padding: 0 2rem 2.5rem;
 }
 
 /* ── Navbar ── */
@@ -74,12 +74,6 @@ strong,
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  z-index: 100;
 }
 
 .navbar-brand {
@@ -662,8 +656,51 @@ button.remove {
   overflow-x: auto;
   background: var(--bg-cream);
   border: 1px solid #e0d8c0;
-  padding: 0.5rem;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
   width: 100%;
+}
+
+.circuit-svg-wrap svg {
+  display: block;
+  min-width: 100%;
+  height: auto;
+}
+
+.circuit-map-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem 1rem;
+  margin-top: 0.85rem;
+}
+
+.circuit-map-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.circuit-map-legend-swatch {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.circuit-map-legend-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.circuit-map-legend-name {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .circuit-diagram .section-header h3 {
@@ -671,12 +708,7 @@ button.remove {
 }
 
 .circuit-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--muted);
+  display: none;
 }
 
 .circuit-legend i {

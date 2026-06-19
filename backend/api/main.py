@@ -177,27 +177,69 @@ def _part_detail_from_request(part: dict[str, Any]) -> dict[str, Any]:
 
 
 def _build_circuit_svg(parts_detail: list[dict[str, Any]]) -> str:
-    x = 10
+    part_labels = {
+        "promoter": "Promoter",
+        "rbs": "RBS",
+        "cds": "Gene",
+        "terminator": "Terminator",
+    }
+    part_widths = {
+        "promoter": 108,
+        "rbs": 72,
+        "cds": 128,
+        "terminator": 108,
+    }
+    x = 16
+    gap = 28
     elements: list[str] = []
-    for part in parts_detail:
+    block_height = 40
+    for index, part in enumerate(parts_detail):
         part_type = _normalize_type(str(part.get("part_type", "")))
         color = PART_TYPE_COLORS.get(part_type, "#cccccc")
-        width = 90
-        label = part_type[:3].upper()
+        width = part_widths.get(part_type, 96)
+        short = part_type[:3].upper()
+        label = part_labels.get(part_type, part_type.title())
+        name = str(part.get("name", part.get("part_id", "")))[:18]
+        center_x = x + width / 2
+
         elements.append(
-            f'<rect x="{x}" y="30" width="{width}" height="36" fill="{color}" '
-            f'stroke="#334155" rx="6"/>'
+            f'<rect x="{x}" y="12" width="{width}" height="{block_height}" fill="{color}" '
+            f'stroke="#475569" stroke-width="1.5" rx="8"/>'
         )
         elements.append(
-            f'<text x="{x + width / 2}" y="52" text-anchor="middle" '
-            f'font-family="monospace" font-size="11" fill="#1e293b">{label}</text>'
+            f'<text x="{center_x}" y="36" text-anchor="middle" '
+            f'font-family="system-ui,sans-serif" font-size="12" font-weight="700" '
+            f'fill="#1e293b">{short}</text>'
         )
-        x += width + 8
-    svg_width = max(x + 10, 120)
+        elements.append(
+            f'<text x="{center_x}" y="68" text-anchor="middle" '
+            f'font-family="system-ui,sans-serif" font-size="11" font-weight="600" '
+            f'fill="#334155">{label}</text>'
+        )
+        elements.append(
+            f'<text x="{center_x}" y="84" text-anchor="middle" '
+            f'font-family="monospace" font-size="9" fill="#64748b">{name}</text>'
+        )
+
+        if index < len(parts_detail) - 1:
+            arrow_x = x + width + 6
+            elements.append(
+                f'<line x1="{arrow_x}" y1="32" x2="{arrow_x + gap - 12}" y2="32" '
+                f'stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>'
+            )
+
+        x += width + gap
+
+    svg_width = max(x + 8, 160)
+    defs = (
+        '<defs><marker id="arrowhead" markerWidth="8" markerHeight="8" '
+        'refX="6" refY="3" orient="auto">'
+        '<polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>'
+    )
     body = "\n  ".join(elements)
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width}" height="80" '
-        f'viewBox="0 0 {svg_width} 80">\n  {body}\n</svg>'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width}" height="96" '
+        f'viewBox="0 0 {svg_width} 96">\n  {defs}\n  {body}\n</svg>'
     )
 
 
@@ -229,9 +271,12 @@ def _resolve_protein_sequence(
         cds_part = _cds_part_from_circuit_parts(parts)
         if cds_part is not None:
             resolved_part_id = resolved_part_id or str(cds_part.get("part_id", "")) or None
-            seq = _clean_amino_acid_sequence(
-                _translate_dna(str(cds_part.get("sequence", "")))
-            )
+            dna = str(cds_part.get("sequence", ""))
+            if not dna.strip() and resolved_part_id:
+                row = _lookup_part_row(resolved_part_id)
+                if row is not None:
+                    dna = str(row.get("sequence", ""))
+            seq = _clean_amino_acid_sequence(_translate_dna(dna))
             if not seq and resolved_part_id:
                 seq = _clean_amino_acid_sequence(_sequence_from_part_id(resolved_part_id))
 
@@ -375,16 +420,16 @@ def _alphafold_match_from_cds_row(
     return result
 
 
-def _find_closest_alphafold_match(
+def _find_closest_structure_for_sequence(
     query_seq: str,
     part_id: str | None = None,
 ) -> dict[str, Any] | None:
+    """Return an AlphaFold structure for the library CDS most similar to query_seq."""
     if PARTS_DF is None or len(query_seq) < 8:
         return None
 
     query_len = len(query_seq)
-    best: dict[str, Any] | None = None
-    best_score = 0.0
+    candidates: list[tuple[float, pd.Series]] = []
     seen: set[str] = set()
     rows_to_check: list[pd.Series] = []
 
@@ -414,46 +459,26 @@ def _find_closest_alphafold_match(
             continue
 
         identity = _sequence_similarity(query_seq, reference_aa)
-        if identity <= best_score:
+        if identity < 0.25:
             continue
 
-        uniprot_id = _uniprot_id_for_cds_row(row, allow_name_search=False)
-        if not uniprot_id:
-            continue
+        candidates.append((identity, row))
 
-        best_score = identity
-        best = {
-            "identity": identity,
-            "part_id": pid,
-            "part_name": str(row.get("name", pid)),
-            "uniprot_id": uniprot_id,
-            "reference_sequence": reference_aa,
-        }
-
-    if not best or best_score < 0.3:
+    if not candidates:
         return None
 
-    if part_id:
-        circuit_row = _lookup_part_row(part_id)
-        if circuit_row is not None and _normalize_type(str(circuit_row.get("part_type", ""))) == "cds":
-            circuit_aa = _translate_dna(str(circuit_row.get("sequence", "")))
-            if len(circuit_aa) >= 8:
-                circuit_identity = _sequence_similarity(query_seq, circuit_aa)
-                circuit_uid = _uniprot_id_for_cds_row(circuit_row, allow_name_search=True)
-                if (
-                    circuit_uid
-                    and circuit_identity >= 0.7
-                    and circuit_identity >= best_score - 0.08
-                ):
-                    return {
-                        "identity": circuit_identity,
-                        "part_id": str(circuit_row.get("part_id", part_id)),
-                        "part_name": str(circuit_row.get("name", part_id)),
-                        "uniprot_id": circuit_uid,
-                        "reference_sequence": circuit_aa,
-                    }
+    candidates.sort(key=lambda item: item[0], reverse=True)
 
-    return best
+    for identity, row in candidates[:30]:
+        homolog = _alphafold_match_from_cds_row(
+            row,
+            match_type="closest",
+            identity=identity,
+        )
+        if homolog:
+            return homolog
+
+    return None
 
 
 def _search_uniprot_by_sequence(amino_acid_sequence: str) -> str | None:
@@ -479,24 +504,40 @@ def _search_uniprot_by_sequence(amino_acid_sequence: str) -> str | None:
 
 
 def _fetch_esmfold_pdb(amino_acid_sequence: str) -> str | None:
-    seq = "".join(c for c in amino_acid_sequence.upper() if c.isalpha())
+    standard_aa = set("ACDEFGHIKLMNPQRSTVWY")
+    seq = "".join(c for c in amino_acid_sequence.upper() if c in standard_aa)
     if not seq or len(seq) > 400:
         return None
-    try:
-        response = requests.post(
-            "https://api.esmatlas.com/foldSequence/v1/pdb/",
-            json={"sequence": seq},
-            headers={"Content-Type": "application/json"},
-            timeout=ESMFOLD_TIMEOUT,
-        )
-        if response.status_code != 200:
-            print(f"ESMFold failed: HTTP {response.status_code}")
+
+    payloads = [
+        (seq, {"Content-Type": "text/plain"}),
+        (seq, {"Content-Type": "application/x-www-form-urlencoded"}),
+    ]
+    for attempt, (body, headers) in enumerate(payloads):
+        try:
+            response = requests.post(
+                "https://api.esmatlas.com/foldSequence/v1/pdb/",
+                data=body,
+                headers=headers,
+                timeout=ESMFOLD_TIMEOUT,
+            )
+            if response.status_code in {502, 503, 504} and attempt == 0:
+                print(f"ESMFold retry after HTTP {response.status_code}")
+                continue
+            if response.status_code != 200:
+                print(f"ESMFold failed: HTTP {response.status_code}")
+                return None
+            text = response.text.strip()
+            if text.startswith("HEADER") or text.startswith("ATOM"):
+                return text
+            print("ESMFold returned unexpected payload")
             return None
-        text = response.text.strip()
-        return text if text.startswith("HEADER") or text.startswith("ATOM") else None
-    except Exception as exc:
-        print(f"ESMFold error: {exc}")
-        return None
+        except Exception as exc:
+            print(f"ESMFold error: {exc}")
+            if attempt == 0:
+                continue
+            return None
+    return None
 
 
 def _resolve_regulatory_structure(
@@ -1325,6 +1366,9 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
         matched_part_id = result.get("matched_part_id")
         disclaimer = result.get("disclaimer")
 
+    def _has_pdb_content() -> bool:
+        return bool(pdb_content and str(pdb_content).strip())
+
     if not seq:
         fallback = _find_best_library_cds_structure() or _bundled_fallback_structure()
         if fallback:
@@ -1358,44 +1402,29 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
                         }
                     )
 
-        if not pdb_url and resolved_part_id:
-            circuit_row = _lookup_part_row(resolved_part_id)
-            if circuit_row is not None and _normalize_type(
-                str(circuit_row.get("part_type", ""))
-            ) == "cds":
-                circuit_aa = _translate_dna(str(circuit_row.get("sequence", "")))
-                identity = _sequence_similarity(seq, circuit_aa) if circuit_aa else 0.0
-                homolog = _alphafold_match_from_cds_row(
-                    circuit_row,
-                    match_type="closest"
-                    if force_nearest or identity < 0.98
-                    else "exact",
-                    identity=identity if identity < 0.98 else None,
-                )
-                if homolog:
-                    _apply_structure_result(homolog)
-
-        if not pdb_url:
-            closest = _find_closest_alphafold_match(seq, resolved_part_id)
+        if not _has_pdb_content():
+            closest = _find_closest_structure_for_sequence(seq, resolved_part_id)
             if closest:
-                closest_row = _lookup_part_row(str(closest["part_id"]))
-                if closest_row is not None:
-                    homolog = _alphafold_match_from_cds_row(
-                        closest_row,
-                        match_type="closest",
-                        identity=float(closest["identity"]),
-                    )
-                    if homolog:
-                        _apply_structure_result(homolog)
+                _apply_structure_result(closest)
 
-        if not pdb_url and not pdb_content:
-            pdb_content = _fetch_esmfold_pdb(seq)
-            if pdb_content:
+        if not _has_pdb_content():
+            esmfold_pdb = _fetch_esmfold_pdb(seq)
+            if esmfold_pdb:
+                pdb_content = esmfold_pdb
+                pdb_url = None
                 source = "esmfold"
                 match_type = "predicted"
                 disclaimer = NEAREST_MATCH_DISCLAIMER
 
-    if not pdb_url and not pdb_content:
+        if not _has_pdb_content():
+            fallback = _bundled_fallback_structure()
+            if fallback:
+                _apply_structure_result(fallback)
+                if not disclaimer:
+                    disclaimer = NEAREST_MATCH_DISCLAIMER
+                    match_type = "closest"
+
+    if not _has_pdb_content() and not seq:
         fallback = _find_best_library_cds_structure() or _bundled_fallback_structure()
         if fallback:
             _apply_structure_result(fallback)
@@ -1403,7 +1432,10 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
                 disclaimer = NEAREST_MATCH_DISCLAIMER
                 match_type = "closest"
 
-    if not pdb_url and not pdb_content:
+    if not _has_pdb_content() and pdb_url:
+        pdb_content = _fetch_pdb_text(pdb_url)
+
+    if not _has_pdb_content():
         raise HTTPException(
             status_code=503,
             detail={"error": "Protein structure data is temporarily unavailable"},
@@ -1412,9 +1444,6 @@ def circuit_protein_structure(body: ProteinStructureRequest) -> dict[str, Any]:
     if force_nearest and match_type == "exact":
         match_type = "closest"
         disclaimer = NEAREST_MATCH_DISCLAIMER
-
-    if pdb_url and not pdb_content:
-        pdb_content = _fetch_pdb_text(pdb_url)
 
     return {
         "amino_acid_sequence": seq or "",
@@ -1445,7 +1474,7 @@ def predict_circuit(body: PredictRequest) -> dict[str, Any]:
     parts_detail = [_part_detail_from_request(part) for part in parts]
     circuit_svg = _build_circuit_svg(parts_detail)
     amino_acid_sequence: str | None = None
-    cds_part = _find_part(parts, "cds")
+    cds_part = _find_part(parts_detail, "cds")
     if cds_part:
         amino_acid_sequence = _translate_dna(str(cds_part.get("sequence", "")))
     protein_can_be_produced = (
