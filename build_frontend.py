@@ -1,7 +1,8 @@
-"""Build the Vite frontend for Vercel static output."""
+"""Build the Vite frontend and copy dist/ into static/ for Vercel."""
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "synbio-studio" / "venv" / "frontend"
 DIST = FRONTEND / "dist"
+STATIC = ROOT / "static"
 
 
 def run(cmd: list[str], cwd: Path) -> None:
@@ -35,7 +37,12 @@ def main() -> None:
             "Build output is incomplete. Expected genesmith-logo.png, JS, and CSS in dist/."
         )
 
+    if STATIC.exists():
+        shutil.rmtree(STATIC)
+    shutil.copytree(DIST, STATIC)
+
     print(f"Frontend build OK: {DIST}")
+    print(f"Copied dist -> {STATIC}")
     print(f"  logo={logo.name}, js={js_assets[0].name}, css={css_assets[0].name}")
 
 

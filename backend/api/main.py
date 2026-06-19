@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html as html_module
+import os
 import pickle
 import re
 import subprocess
@@ -48,7 +49,8 @@ def _init_runtime() -> None:
 
 @app.middleware("http")
 async def _ensure_runtime_initialized(request: Request, call_next):
-    if request.url.path == "/health":
+    path = request.url.path
+    if path == "/health" or _is_frontend_asset_path(path):
         return await call_next(request)
     _init_runtime()
     return await call_next(request)
@@ -1543,3 +1545,69 @@ def admin_job_status(job_id: str) -> dict[str, Any]:
         "output": "\n".join(output_lines[-50:]),
         "error": job["error"],
     }
+
+
+REPO_ROOT = Path(
+    os.environ.get("GENESMITH_PROJECT_ROOT", Path(__file__).resolve().parents[2])
+)
+STATIC_DIR = REPO_ROOT / "static"
+_API_PATH_PREFIXES = (
+    "parts",
+    "circuits",
+    "model",
+    "admin",
+    "recommend",
+    "health",
+    "docs",
+    "openapi.json",
+    "redoc",
+)
+
+
+def _is_frontend_asset_path(path: str) -> bool:
+    if path in ("", "/"):
+        return True
+    if path.startswith("/assets/"):
+        return True
+    if path in ("/genesmith-logo.png", "/favicon.ico", "/index.html"):
+        return True
+    filename = path.rsplit("/", 1)[-1]
+    return "." in filename and not path.lstrip("/").split("/")[0] in _API_PATH_PREFIXES
+
+
+def _safe_static_file(relative_path: str) -> Path | None:
+    if not STATIC_DIR.is_dir():
+        return None
+    base = STATIC_DIR.resolve()
+    target = base.joinpath(relative_path).resolve()
+    if base not in target.parents and target != base:
+        return None
+    return target if target.is_file() else None
+
+
+def _register_frontend_routes() -> None:
+    from fastapi.responses import FileResponse
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend_root():
+        index = STATIC_DIR / "index.html"
+        if not index.is_file():
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(index)
+
+    @app.get("/assets/{asset_path:path}", include_in_schema=False)
+    async def serve_frontend_asset(asset_path: str):
+        target = _safe_static_file(f"assets/{asset_path}")
+        if target is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(target)
+
+    @app.get("/genesmith-logo.png", include_in_schema=False)
+    async def serve_frontend_logo():
+        target = _safe_static_file("genesmith-logo.png")
+        if target is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(target, media_type="image/png")
+
+
+_register_frontend_routes()

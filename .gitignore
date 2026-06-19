@@ -1,3 +1,4 @@
-# Local build artifacts (dist/ is deployed to Vercel)
+# Local build artifacts (static/ is built on deploy and served by FastAPI + CDN)
 public/
 backend/static/
+static/
