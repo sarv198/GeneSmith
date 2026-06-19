@@ -1,16 +1,14 @@
-"""Build the Vite frontend and copy dist/ into public/ for Vercel CDN."""
+"""Build the Vite frontend for Vercel static output."""
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "synbio-studio" / "venv" / "frontend"
-PUBLIC = ROOT / "public"
-BACKEND_STATIC = ROOT / "backend" / "static"
+DIST = FRONTEND / "dist"
 
 
 def run(cmd: list[str], cwd: Path) -> None:
@@ -26,27 +24,19 @@ def main() -> None:
     run([npm, "install", "--legacy-peer-deps"], FRONTEND)
     run([npm, "run", "build"], FRONTEND)
 
-    dist = FRONTEND / "dist"
-    if not dist.exists():
-        raise SystemExit(f"Build output not found: {dist}")
+    if not DIST.exists():
+        raise SystemExit(f"Build output not found: {DIST}")
 
-    if PUBLIC.exists():
-        shutil.rmtree(PUBLIC)
-    if BACKEND_STATIC.exists():
-        shutil.rmtree(BACKEND_STATIC)
-    shutil.copytree(dist, PUBLIC)
-    shutil.copytree(dist, BACKEND_STATIC)
-
-    logo = BACKEND_STATIC / "genesmith-logo.png"
-    js_assets = list((BACKEND_STATIC / "assets").glob("*.js"))
-    if not logo.is_file() or not js_assets:
+    logo = DIST / "genesmith-logo.png"
+    js_assets = list((DIST / "assets").glob("*.js"))
+    css_assets = list((DIST / "assets").glob("*.css"))
+    if not logo.is_file() or not js_assets or not css_assets:
         raise SystemExit(
-            "Build output is incomplete. Expected genesmith-logo.png and bundled JS assets."
+            "Build output is incomplete. Expected genesmith-logo.png, JS, and CSS in dist/."
         )
 
-    print(f"Copied {dist} -> {PUBLIC}")
-    print(f"Copied {dist} -> {BACKEND_STATIC}")
-    print(f"Static bundle: logo={logo.name}, js={js_assets[0].name}")
+    print(f"Frontend build OK: {DIST}")
+    print(f"  logo={logo.name}, js={js_assets[0].name}, css={css_assets[0].name}")
 
 
 if __name__ == "__main__":

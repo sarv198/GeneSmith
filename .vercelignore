@@ -1,6 +1,5 @@
-# Frontend build artifacts (built into public/ during deploy)
+# Frontend dependencies (dist/ is deployed — do NOT ignore)
 synbio-studio/venv/frontend/node_modules
-synbio-studio/venv/frontend/dist
 
 # Raw iGEM dump — only used by offline fetch scripts, not runtime API
 backend/data/igem_parts_raw.xml
