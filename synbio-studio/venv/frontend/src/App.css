@@ -59,7 +59,7 @@ strong,
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 2rem 2.5rem;
+  padding: 3.75rem 2rem 2.5rem;
 }
 
 /* ── Navbar ── */
@@ -74,9 +74,12 @@ strong,
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 50;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 100;
 }
 
 .navbar-brand {
