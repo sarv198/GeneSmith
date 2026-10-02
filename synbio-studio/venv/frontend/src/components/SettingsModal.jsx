@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client.js";
+import { api, API_BASE } from "../api/client.js";
+import { IconClose } from "./Icons.jsx";
+
+const MODEL_ROWS = [
+  { key: "model_loaded", label: "Promoter model", detail: "GBM-v1" },
+  { key: "rbs_model_loaded", label: "RBS model", detail: "GBM-RBS-v1" },
+  { key: "circuit_model_loaded", label: "Circuit model", detail: "GBM-circuit-v1" },
+];
 
 export default function SettingsModal({ open, onClose, onPartsRefreshed }) {
   const [modelStatus, setModelStatus] = useState(null);
@@ -54,98 +61,160 @@ export default function SettingsModal({ open, onClose, onPartsRefreshed }) {
 
   if (!open) return null;
 
+  const jobChip = (job) => {
+    if (!job) return null;
+    const level =
+      job.status === "complete" ? "ok" : job.status === "failed" ? "err" : "warn";
+    return (
+      <span className={`chip chip-${level}`}>
+        <span className="dot" aria-hidden="true" />
+        {job.job_id?.slice(0, 8)} · {job.status}
+      </span>
+    );
+  };
+
   return (
-    <div className="settings-overlay" role="presentation" onClick={onClose}>
+    <div className="overlay" role="presentation" onClick={onClose}>
       <div
-        className="settings-modal"
+        className="modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Settings"
+        aria-label="Model and library settings"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="settings-header">
-          <h2>Settings</h2>
-          <button type="button" className="settings-close" onClick={onClose}>
-            ×
-          </button>
-        </div>
-
-        {modelStatus && (
-          <ul className="admin-status">
-            <li>
-              Promoter model:{" "}
-              {modelStatus.model_loaded ? "● Loaded (GBM-v1)" : "○ Not loaded"}
-            </li>
-            <li>
-              RBS model:{" "}
-              {modelStatus.rbs_model_loaded ? "● Loaded" : "○ Not loaded"}
-            </li>
-            <li>
-              Circuit model:{" "}
-              {modelStatus.circuit_model_loaded ? "● Loaded" : "○ Not loaded"}
-            </li>
-            <li>Parts library: {modelStatus.parts_count?.toLocaleString() || 0} parts</li>
-          </ul>
-        )}
-
-        <button type="button" onClick={async () => {
-          try {
-            const { data } = await api.post("/admin/refresh-parts");
-            setRefreshJob({ job_id: data.job_id, status: "running" });
-            pollJob(data.job_id, setRefreshJob);
-          } catch (err) {
-            setLog(String(err));
-          }
-        }}>
-          Refresh Parts Library
-        </button>
-        {refreshJob && (
-          <p className="hint">
-            Refresh job {refreshJob.job_id?.slice(0, 8)}… — {refreshJob.status}
-          </p>
-        )}
-
-        <div className="retrain-section">
-          <p>Retrain Models</p>
-          {["promoter", "rbs", "circuit"].map((key) => (
-            <label key={key}>
-              <input
-                type="checkbox"
-                checked={trainModels[key]}
-                onChange={(e) =>
-                  setTrainModels((s) => ({ ...s, [key]: e.target.checked }))
-                }
-              />
-              {key} model
-            </label>
-          ))}
+        <div className="modal-head">
+          <h2>Models &amp; library</h2>
+          <span className="chip mono" style={{ marginLeft: "auto" }}>
+            {API_BASE || "same origin"}
+          </span>
           <button
             type="button"
-            className="btn-dark"
-            onClick={async () => {
-              const models = Object.entries(trainModels)
-                .filter(([, v]) => v)
-                .map(([k]) => k);
-              try {
-                const { data } = await api.post("/admin/retrain", { models });
-                setTrainJob({ job_id: data.job_id, status: "running" });
-                pollJob(data.job_id, setTrainJob);
-              } catch (err) {
-                setLog(String(err));
-              }
-            }}
+            className="btn-icon"
+            onClick={onClose}
+            aria-label="Close settings"
           >
-            Start Retraining
+            <IconClose />
           </button>
-          {trainJob && (
-            <p className="hint">
-              Train job {trainJob.job_id?.slice(0, 8)}… — {trainJob.status}
-            </p>
-          )}
         </div>
 
-        <div className="admin-log">
-          <pre>{log || "Job output will appear here…"}</pre>
+        <div className="modal-body">
+          <section className="stack-sm">
+            <div className="sub-label">Service status</div>
+            {modelStatus ? (
+              <div className="status-list">
+                {MODEL_ROWS.map((row) => (
+                  <div className="status-row" key={row.key}>
+                    <span
+                      className={`chip ${modelStatus[row.key] ? "chip-ok" : "chip-warn"}`}
+                    >
+                      <span className="dot" aria-hidden="true" />
+                      {modelStatus[row.key] ? "loaded" : "not loaded"}
+                    </span>
+                    <span className="k">{row.label}</span>
+                    <span className="v">{row.detail}</span>
+                  </div>
+                ))}
+                <div className="status-row">
+                  <span className="chip">
+                    <span className="dot" aria-hidden="true" />
+                    library
+                  </span>
+                  <span className="k">Parts available</span>
+                  <span className="v">
+                    {modelStatus.parts_count?.toLocaleString() || 0}
+                  </span>
+                </div>
+                <div className="status-row">
+                  <span className="chip">
+                    <span className="dot" aria-hidden="true" />
+                    mode
+                  </span>
+                  <span className="k">Active predictor</span>
+                  <span className="v">{modelStatus.mode}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="warn-text">
+                Cannot reach the backend at {API_BASE || "this origin"}.
+              </p>
+            )}
+          </section>
+
+          <section className="stack-sm">
+            <div className="sub-label">Parts library</div>
+            <p className="hint">
+              Re-fetches iGEM, Anderson and RegulonDB records, then rebuilds the
+              master parts table.
+            </p>
+            <div className="insp-inline-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={async () => {
+                  try {
+                    const { data } = await api.post("/admin/refresh-parts");
+                    setRefreshJob({ job_id: data.job_id, status: "running" });
+                    pollJob(data.job_id, setRefreshJob);
+                  } catch (err) {
+                    setLog(String(err));
+                  }
+                }}
+              >
+                Refresh parts library
+              </button>
+              {jobChip(refreshJob)}
+            </div>
+          </section>
+
+          <section className="stack-sm">
+            <div className="sub-label">Retrain models</div>
+            <p className="hint">
+              Trains the selected estimators from the current datasets. Runs on
+              the backend and can take several minutes.
+            </p>
+            <div className="insp-inline-actions">
+              {["promoter", "rbs", "circuit"].map((key) => (
+                <label key={key} className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={trainModels[key]}
+                    onChange={(e) =>
+                      setTrainModels((s) => ({ ...s, [key]: e.target.checked }))
+                    }
+                  />
+                  {key}
+                </label>
+              ))}
+            </div>
+            <div className="insp-inline-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={async () => {
+                  const models = Object.entries(trainModels)
+                    .filter(([, v]) => v)
+                    .map(([k]) => k);
+                  try {
+                    const { data } = await api.post("/admin/retrain", { models });
+                    setTrainJob({ job_id: data.job_id, status: "running" });
+                    pollJob(data.job_id, setTrainJob);
+                  } catch (err) {
+                    setLog(String(err));
+                  }
+                }}
+              >
+                Start retraining
+              </button>
+              {jobChip(trainJob)}
+            </div>
+          </section>
+
+          <section className="stack-sm">
+            <div className="sub-label">Job output</div>
+            <div className="log">
+              <pre>{log || "Job output will appear here…"}</pre>
+            </div>
+          </section>
         </div>
       </div>
     </div>

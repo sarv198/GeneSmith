@@ -1,40 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as NGL from "ngl";
 import { api } from "../api/client.js";
-import { aminoAcidColor } from "../utils/aminoAcidColors.js";
+import { stageBackground, useTheme } from "../theme.jsx";
+import {
+  IconCollapse,
+  IconExpand,
+  IconReset,
+  IconTarget,
+} from "./Icons.jsx";
 
-function safeId(partId) {
-  return String(partId || "protein").replace(/[^a-zA-Z0-9_-]/g, "_");
-}
-
-function AminoAcidSequence({ sequence }) {
-  if (!sequence) return null;
-  const lines = [];
-  for (let i = 0; i < sequence.length; i += 10) {
-    lines.push(sequence.slice(i, i + 10));
-  }
-  return (
-    <div className="aa-sequence-block">
-      {lines.map((line, lineIndex) => {
-        const offset = lineIndex * 10;
-        return (
-          <div key={offset} className="aa-line">
-            <span className="aa-line-number">{offset + 1}</span>
-            {line.split("").map((residue, index) => (
-              <span
-                key={`${offset}-${index}`}
-                className="aa-residue"
-                style={{ color: aminoAcidColor(residue) }}
-              >
-                {residue}
-              </span>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+const REPRESENTATIONS = [
+  { id: "cartoon", label: "Cartoon" },
+  { id: "surface", label: "Surface" },
+  { id: "ball+stick", label: "Ball & stick" },
+];
 
 function buildStructurePayload(sequence, genePart, circuit, proteinCanBeProduced) {
   const parts = (circuit || []).map(({ part_id, part_type, sequence: dna }) => ({
@@ -89,11 +68,17 @@ export default function ProteinViewer3D({
   proteinCanBeProduced = null,
   large = false,
 }) {
+  const { theme } = useTheme();
   const [structureData, setStructureData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [representation, setRepresentation] = useState("cartoon");
+  const [colorScheme, setColorScheme] = useState(null);
+  const [ready, setReady] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
   const viewportRef = useRef(null);
   const stageRef = useRef(null);
+  const componentRef = useRef(null);
 
   const sequence =
     structureData?.amino_acid_sequence || aminoAcidSequence || "";
@@ -104,7 +89,9 @@ export default function ProteinViewer3D({
   const disclaimer = structureData?.disclaimer;
   const matchedName = structureData?.matched_protein_name;
   const matchIdentity = structureData?.match_identity;
+  const uniprotId = structureData?.uniprot_id;
   const hasStructure = Boolean(pdbContent || pdbUrl);
+  const isAlphafold = source === "alphafold";
   const requestKey = [
     aminoAcidSequence || "",
     genePart?.part_id || "",
@@ -156,6 +143,12 @@ export default function ProteinViewer3D({
     };
   }, [requestKey]);
 
+  // Default colouring follows the structure source, as before.
+  useEffect(() => {
+    setColorScheme(isAlphafold ? "bfactor" : "chainid");
+    setRepresentation("cartoon");
+  }, [isAlphafold, structureData]);
+
   useLayoutEffect(() => {
     if (loading || !hasStructure) return undefined;
 
@@ -167,9 +160,10 @@ export default function ProteinViewer3D({
 
     stageRef.current?.dispose();
     stageRef.current = null;
+    componentRef.current = null;
     el.replaceChildren();
 
-    const stage = new NGL.Stage(el, { backgroundColor: "#1a0a2e" });
+    const stage = new NGL.Stage(el, { backgroundColor: stageBackground(theme) });
     stageRef.current = stage;
 
     const loadTarget = pdbContent
@@ -185,17 +179,11 @@ export default function ProteinViewer3D({
       .loadFile(loadTarget, { defaultRepresentation: false, ext: "pdb" })
       .then((component) => {
         if (cancelled) return;
-        try {
-          component.addRepresentation("cartoon", {
-            colorScheme: source === "alphafold" ? "bfactor" : "chainid",
-            smoothSheet: true,
-          });
-        } catch (reprErr) {
-          console.warn("Cartoon representation failed:", reprErr);
-        }
+        componentRef.current = component;
         component.autoView();
         stage.handleResize();
         setLoadError(null);
+        setReady((value) => value + 1);
       })
       .catch((err) => {
         console.error("NGL protein load failed:", err);
@@ -206,71 +194,225 @@ export default function ProteinViewer3D({
         }
       });
 
+    const observer = new ResizeObserver(() => stageRef.current?.handleResize());
+    observer.observe(el);
+
     return () => {
       cancelled = true;
+      observer.disconnect();
       stage.dispose();
       stageRef.current = null;
+      componentRef.current = null;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [loading, hasStructure, pdbContent, pdbUrl, source]);
 
-  const canvasClass = large
-    ? "visualize-canvas visualize-canvas-large"
-    : "viewer-canvas";
-  const panelClass = large
-    ? "visualize-panel visualize-panel-large protein-viewer-3d"
-    : "viewer-panel protein-viewer-3d";
+  // Representation and colouring are applied without reloading the model.
+  useEffect(() => {
+    const component = componentRef.current;
+    if (!component || !ready || !colorScheme) return;
+    try {
+      component.removeAllRepresentations();
+      const options = { colorScheme };
+      if (representation === "cartoon") options.smoothSheet = true;
+      if (representation === "surface") {
+        options.opacity = 0.86;
+        options.surfaceType = "av";
+      }
+      if (representation === "ball+stick") options.scale = 0.34;
+      component.addRepresentation(representation, options);
+    } catch (reprErr) {
+      console.warn("Representation change failed:", reprErr);
+    }
+  }, [ready, representation, colorScheme]);
 
-  const subtitleParts = [];
-  if (sequence.length > 0) {
-    subtitleParts.push(`${sequence.length} amino acids`);
-  }
-  if (matchType === "exact" && source === "alphafold") {
-    subtitleParts.push("AlphaFold confidence coloring");
-  } else if (matchType === "closest" || matchType === "predicted") {
-    subtitleParts.push("Nearest match");
-    if (matchedName) {
-      subtitleParts.push(matchedName);
-    }
-    if (matchIdentity != null) {
-      subtitleParts.push(`${matchIdentity}% sequence identity`);
-    }
-  } else if (source === "esmfold") {
-    subtitleParts.push("Structure prediction");
-  }
+  // Repaint the stage on theme change without reloading the structure.
+  useEffect(() => {
+    stageRef.current?.setParameters({ backgroundColor: stageBackground(theme) });
+  }, [theme, ready]);
+
+  useEffect(() => {
+    if (!fullscreen) return undefined;
+    const onKey = (event) => event.key === "Escape" && setFullscreen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => stageRef.current?.handleResize());
+    return () => cancelAnimationFrame(id);
+  }, [fullscreen]);
+
+  const provenance =
+    matchType === "exact" && isAlphafold
+      ? { tag: "sourced", text: `AlphaFold model · UniProt ${uniprotId || "match"}` }
+      : matchType === "closest"
+        ? {
+            tag: "sourced",
+            text: `Nearest library match${matchedName ? ` · ${matchedName}` : ""}${
+              matchIdentity != null ? ` · ${matchIdentity}% identity` : ""
+            }`,
+          }
+        : source === "esmfold" || matchType === "predicted"
+          ? { tag: "predicted", text: "ESMFold structure prediction" }
+          : { tag: "sourced", text: "Reference structure" };
 
   const showCanvas = !loading && hasStructure;
 
   return (
-    <div className={panelClass}>
-      <h3 className="visualize-panel-title">Predicted Protein Structure</h3>
-      <p className="visualize-panel-subtitle">
-        {subtitleParts.length > 0 ? subtitleParts.join(" | ") : "No protein sequence"}
-      </p>
+    <div
+      className={`viewer protein-viewer ${large ? "viewer-lg" : "viewer-md"} ${
+        fullscreen ? "viewer-fullscreen" : ""
+      }`}
+    >
+      <div className="viewer-head">
+        <div className="viewer-titles">
+          <div className="viewer-title">Protein structure</div>
+          <div className="viewer-subtitle">
+            {sequence.length > 0 ? `${sequence.length} residues · ` : ""}
+            {provenance.text}
+          </div>
+        </div>
 
-      {disclaimer && !loading && (
-        <p className="protein-structure-disclaimer">{disclaimer}</p>
+        <div className="viewer-tools">
+          <span className={`prov prov-${provenance.tag === "predicted" ? "predicted" : "source"}`}>
+            {provenance.tag}
+          </span>
+        </div>
+      </div>
+
+      {showCanvas && (
+        <div className="viewer-controls">
+          <div className="seg-control" role="group" aria-label="Representation">
+            {REPRESENTATIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={representation === option.id}
+                onClick={() => setRepresentation(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="seg-control" role="group" aria-label="Colour scheme">
+            <button
+              type="button"
+              aria-pressed={colorScheme === "chainid"}
+              onClick={() => setColorScheme("chainid")}
+              data-tip="Colour by polypeptide chain"
+            >
+              Chain
+            </button>
+            <button
+              type="button"
+              aria-pressed={colorScheme === "sstruc"}
+              onClick={() => setColorScheme("sstruc")}
+              data-tip="Colour by α-helix, β-sheet and loop"
+            >
+              Structure
+            </button>
+            {isAlphafold && (
+              <button
+                type="button"
+                aria-pressed={colorScheme === "bfactor"}
+                onClick={() => setColorScheme("bfactor")}
+                data-tip="AlphaFold pLDDT confidence per residue"
+              >
+                Confidence
+              </button>
+            )}
+          </div>
+
+          <div className="viewer-tools">
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => componentRef.current?.autoView(400)}
+              aria-label="Recentre the model"
+              data-tip="Recentre"
+            >
+              <IconTarget />
+            </button>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => {
+                setRepresentation("cartoon");
+                setColorScheme(isAlphafold ? "bfactor" : "chainid");
+                componentRef.current?.autoView(400);
+              }}
+              aria-label="Reset the view"
+              data-tip="Reset view"
+            >
+              <IconReset />
+            </button>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => setFullscreen((value) => !value)}
+              aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+              data-tip={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
+              data-tip-align="end"
+            >
+              {fullscreen ? <IconCollapse /> : <IconExpand />}
+            </button>
+          </div>
+        </div>
       )}
 
-      {loading && <p className="viewer-loading">Loading protein structure…</p>}
+      <div className="viewer-stage">
+        <div
+          ref={viewportRef}
+          className="viewer-canvas"
+          style={{ display: showCanvas ? "block" : "none" }}
+        />
 
-      <div
-        ref={viewportRef}
-        className={canvasClass}
-        style={{ display: showCanvas ? "block" : "none" }}
-      />
+        {loading && (
+          <div className="viewer-overlay">
+            <span className="loading-row">
+              <span className="pulse-bar" aria-hidden="true" />
+              Resolving and loading molecular model…
+            </span>
+          </div>
+        )}
 
-      {!loading && loadError && (
-        <p className="viewer-hint warn-text">{loadError}</p>
+        {!loading && loadError && (
+          <div className="viewer-overlay">
+            <div className="empty">
+              <p className="empty-title">Structure unavailable</p>
+              <p className="empty-body">{loadError}</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && !hasStructure && !loadError && (
+          <div className="viewer-overlay">
+            <div className="empty">
+              <p className="empty-title">No structure to show</p>
+              <p className="empty-body">
+                Select a coding sequence to explore its predicted structure.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {(disclaimer || showCanvas) && (
+        <div className="viewer-foot">
+          {disclaimer ? (
+            <span>{disclaimer} Shape is indicative, not an experimental structure.</span>
+          ) : isAlphafold ? (
+            <span>
+              Source: AlphaFold DB{uniprotId ? ` · ${uniprotId}` : ""} — a
+              computed model, not an experimental structure.
+            </span>
+          ) : (
+            <span>Structure retrieved for the closest matching protein.</span>
+          )}
+        </div>
       )}
-
-      {!loading && !hasStructure && !loadError && (
-        <p className="viewer-hint">
-          Add a gene/CDS part to your circuit to view a protein structure.
-        </p>
-      )}
-
-      {!large && <AminoAcidSequence sequence={sequence} />}
     </div>
   );
 }

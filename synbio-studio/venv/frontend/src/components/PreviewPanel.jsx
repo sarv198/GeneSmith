@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { createViewer } from "3dmol";
 import { api, typeColor } from "../api/client.js";
 import { extractOrganism } from "../utils/partDisplay.js";
+import { typeKey } from "../utils/circuit.js";
+import { labelBackground, stageBackground, useTheme } from "../theme.jsx";
+import { whenPaintable } from "../utils/paint.js";
 import {
   buildStructureFromCircuit,
   sanitizeDna,
@@ -17,7 +20,7 @@ function circuitPartsPayload(circuit) {
   }));
 }
 
-function renderDnaHelix(viewer, dnaStructure) {
+function renderDnaHelix(viewer, dnaStructure, labelBg) {
   const assembled = sanitizeDna(dnaStructure.assembled_sequence);
   if (assembled.length < 2) return false;
 
@@ -55,11 +58,11 @@ function renderDnaHelix(viewer, dnaStructure) {
 
       const partType = (part.part_type || "").toLowerCase();
       if (partType === "promoter") {
-        addPromoterAnnotation(viewer, startCoord, part.color);
+        addPromoterAnnotation(viewer, startCoord, part.color, labelBg);
       } else if (partType === "rbs") {
-        addRBSAnnotation(viewer, startCoord, part.color);
+        addRBSAnnotation(viewer, startCoord, part.color, labelBg);
       } else if (partType === "terminator") {
-        addTerminatorAnnotation(viewer, startCoord, part.color);
+        addTerminatorAnnotation(viewer, startCoord, part.color, labelBg);
       }
 
       drewAnything = true;
@@ -78,7 +81,7 @@ function renderDnaHelix(viewer, dnaStructure) {
   return true;
 }
 
-function addPromoterAnnotation(viewer, startCoord, color) {
+function addPromoterAnnotation(viewer, startCoord, color, labelBg) {
   try {
     viewer.addSphere({
       center: {
@@ -110,8 +113,8 @@ function addPromoterAnnotation(viewer, startCoord, color) {
       },
       fontSize: 9,
       fontColor: color,
-      backgroundColor: "white",
-      backgroundOpacity: 0.75,
+      backgroundColor: labelBg,
+      backgroundOpacity: 0.72,
       borderThickness: 0,
     });
   } catch (e) {
@@ -119,7 +122,7 @@ function addPromoterAnnotation(viewer, startCoord, color) {
   }
 }
 
-function addRBSAnnotation(viewer, startCoord, color) {
+function addRBSAnnotation(viewer, startCoord, color, labelBg) {
   try {
     viewer.addLabel("RBS / SD", {
       position: {
@@ -129,8 +132,8 @@ function addRBSAnnotation(viewer, startCoord, color) {
       },
       fontSize: 9,
       fontColor: color,
-      backgroundColor: "white",
-      backgroundOpacity: 0.75,
+      backgroundColor: labelBg,
+      backgroundOpacity: 0.72,
       borderThickness: 0,
     });
 
@@ -154,7 +157,7 @@ function addRBSAnnotation(viewer, startCoord, color) {
   }
 }
 
-function addTerminatorAnnotation(viewer, startCoord, color) {
+function addTerminatorAnnotation(viewer, startCoord, color, labelBg) {
   try {
     viewer.addCylinder({
       start: { x: startCoord.x - 0.8, y: startCoord.y, z: startCoord.z + 1 },
@@ -195,8 +198,8 @@ function addTerminatorAnnotation(viewer, startCoord, color) {
       },
       fontSize: 9,
       fontColor: color,
-      backgroundColor: "white",
-      backgroundOpacity: 0.75,
+      backgroundColor: labelBg,
+      backgroundOpacity: 0.72,
       borderThickness: 0,
     });
   } catch (e) {
@@ -204,7 +207,8 @@ function addTerminatorAnnotation(viewer, startCoord, color) {
   }
 }
 
-export default function PreviewPanel({ circuit }) {
+export default function PreviewPanel({ circuit, selectedUid }) {
+  const { theme } = useTheme();
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -232,6 +236,7 @@ export default function PreviewPanel({ circuit }) {
     }
 
     let cancelled = false;
+    let cancelPaint = null;
     setLoading(true);
     setRenderError(null);
 
@@ -244,15 +249,15 @@ export default function PreviewPanel({ circuit }) {
       }
       container.replaceChildren();
 
-      requestAnimationFrame(() => {
+      cancelPaint = whenPaintable(() => {
         if (cancelled) return;
         try {
           const viewer = createViewer(container, {
-            backgroundColor: "#e8e0c8",
+            backgroundColor: stageBackground(theme),
           });
           viewerRef.current = viewer;
 
-          const rendered = renderDnaHelix(viewer, dnaStructure);
+          const rendered = renderDnaHelix(viewer, dnaStructure, labelBackground(theme));
           if (!rendered) {
             setRenderError("No renderable DNA sequence for this circuit.");
           } else {
@@ -295,41 +300,79 @@ export default function PreviewPanel({ circuit }) {
 
     return () => {
       cancelled = true;
+      cancelPaint?.();
       if (viewerRef.current) {
         viewerRef.current.clear();
         viewerRef.current = null;
       }
     };
-  }, [structureKey, partIds.join("|")]);
+  }, [structureKey, partIds.join("|"), theme]);
 
   return (
-    <aside className="preview-panel">
-      <h3 className="preview-title">PREVIEW Model</h3>
-      <p className="preview-species">{species}</p>
-      {loading && <p className="hint">Building preview…</p>}
-      {!partIds.length && (
-        <p className="hint preview-empty">Add parts to the circuit to preview assembly.</p>
-      )}
-      {renderError && !loading && <p className="warn-text">{renderError}</p>}
-      <div
-        ref={containerRef}
-        className="preview-canvas"
-        style={{ width: "100%", height: 280, minHeight: 280 }}
-      />
-      <p
-        className="preview-caption"
-        style={{
-          fontSize: 11,
-          color: "#6b7280",
-          lineHeight: 1.5,
-          marginTop: 8,
-          fontStyle: "italic",
-        }}
-      >
-        Helix colors show part boundaries on the DNA construct.
-        The terminator hairpin and RBS annotations represent their
-        functional RNA-level structures, not their DNA form.
-      </p>
-    </aside>
+    <div className="viewer construct-viewer">
+      <div className="viewer-head">
+        <div className="viewer-titles">
+          <div className="viewer-title">Assembled construct</div>
+          <div className="viewer-subtitle">
+            <span style={{ fontStyle: "italic" }}>{species}</span> · schematic
+            B-DNA
+          </div>
+        </div>
+        <div className="viewer-tools">
+          <span className="prov prov-computed">computed</span>
+        </div>
+      </div>
+
+      <div className="viewer-stage">
+        <div ref={containerRef} className="preview-canvas" />
+
+        {loading && (
+          <div className="viewer-overlay">
+            <span className="loading-row">
+              <span className="pulse-bar" aria-hidden="true" />
+              Building construct model…
+            </span>
+          </div>
+        )}
+
+        {!partIds.length && (
+          <div className="viewer-overlay">
+            <div className="empty">
+              <p className="empty-title">No construct to model</p>
+              <p className="empty-body">
+                Add parts to the canvas to see them assembled along a single
+                DNA molecule.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {renderError && !loading && (
+          <div className="viewer-overlay">
+            <p className="warn-text">{renderError}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="viewer-foot">
+        <div className="seq-legend" style={{ marginLeft: 0 }}>
+          {circuit.map((part) => (
+            <span
+              key={part.uid}
+              className={`seq-legend-item ${selectedUid === part.uid ? "on" : ""}`}
+              data-type={typeKey(part.part_type)}
+            >
+              <span className="sw" aria-hidden="true" />
+              {part.part_id}
+            </span>
+          ))}
+        </div>
+        <p className="hint" style={{ flexBasis: "100%" }}>
+          Helix colours mark part boundaries. The terminator hairpin and RBS
+          annotations represent their functional RNA-level structures, not their
+          DNA form.
+        </p>
+      </div>
+    </div>
   );
 }

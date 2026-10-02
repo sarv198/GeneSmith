@@ -1,141 +1,209 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, API_BASE } from "../api/client.js";
-import PageHero from "../components/PageHero.jsx";
-import SettingsModal from "../components/SettingsModal.jsx";
+import { useCallback, useEffect, useMemo } from "react";
+import { API_BASE } from "../api/client.js";
 import PartsLibrary from "../components/PartsLibrary.jsx";
 import CircuitCanvas from "../components/CircuitCanvas.jsx";
-import PreviewPanel from "../components/PreviewPanel.jsx";
-import PredictionPanel from "../components/PredictionPanel.jsx";
+import AnalysisDock from "../components/AnalysisDock.jsx";
+import Inspector from "../components/Inspector.jsx";
+import { IconAlert } from "../components/Icons.jsx";
+import { hasType } from "../utils/circuit.js";
 
 export default function CircuitBuilderPage({
   circuit,
   setCircuit,
+  selectedUid,
+  setSelectedUid,
   predictResult,
   setPredictResult,
+  loading,
+  error,
+  onPredict,
   onNavigate,
+  backendOnline,
+  partsRefreshKey,
+  railOpen,
+  inspectorOpen,
+  onCloseDrawers,
+  onRequestInspector,
+  activeTab,
+  onTabChange,
 }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [partsRefreshKey, setPartsRefreshKey] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [backendOnline, setBackendOnline] = useState(null);
-  const [showOutput, setShowOutput] = useState(false);
-  const outputRef = useRef(null);
 
   const partCounts = useMemo(() => {
     const counts = {};
-    circuit.forEach((p) => {
-      counts[p.part_id] = (counts[p.part_id] || 0) + 1;
+    circuit.forEach((part) => {
+      counts[part.part_id] = (counts[part.part_id] || 0) + 1;
     });
     return counts;
   }, [circuit]);
 
-  useEffect(() => {
-    api
-      .get("/model/status")
-      .then(() => setBackendOnline(true))
-      .catch(() => setBackendOnline(false));
-  }, [partsRefreshKey]);
+  const selectedIndex = circuit.findIndex((part) => part.uid === selectedUid);
+  const selectedPart = selectedIndex >= 0 ? circuit[selectedIndex] : null;
 
-  const onAddPart = useCallback(
-    (part) => {
-      setCircuit((prev) => [
-        ...prev,
-        { ...part, uid: part.uid || crypto.randomUUID() },
-      ]);
-      setPredictResult(null);
-      setShowOutput(false);
+  // Any edit invalidates the previous model run.
+  const invalidate = useCallback(() => setPredictResult(null), [setPredictResult]);
+
+  const insertPart = useCallback(
+    (part, index) => {
+      const uid = crypto.randomUUID();
+      setCircuit((prev) => {
+        const next = [...prev];
+        const at = Math.max(0, Math.min(index ?? next.length, next.length));
+        next.splice(at, 0, { ...part, uid });
+        return next;
+      });
+      invalidate();
+      setSelectedUid(uid);
     },
-    [setCircuit, setPredictResult],
+    [setCircuit, invalidate, setSelectedUid],
   );
 
-  const removePart = (uid) => {
-    setCircuit((prev) => prev.filter((p) => p.uid !== uid));
-    setPredictResult(null);
-    setShowOutput(false);
-  };
+  const addPart = useCallback(
+    (part) => insertPart(part, circuit.length),
+    [insertPart, circuit.length],
+  );
 
-  const clearCircuit = () => {
+  const removePart = useCallback(
+    (uid) => {
+      setCircuit((prev) => prev.filter((part) => part.uid !== uid));
+      invalidate();
+      setSelectedUid((current) => (current === uid ? null : current));
+    },
+    [setCircuit, invalidate, setSelectedUid],
+  );
+
+  const movePart = useCallback(
+    (uid, toIndex) => {
+      setCircuit((prev) => {
+        const from = prev.findIndex((part) => part.uid === uid);
+        if (from < 0) return prev;
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        const target = toIndex > from ? toIndex - 1 : toIndex;
+        next.splice(Math.max(0, Math.min(target, next.length)), 0, moved);
+        return next;
+      });
+      invalidate();
+    },
+    [setCircuit, invalidate],
+  );
+
+  const duplicatePart = useCallback(
+    (part) => {
+      const index = circuit.findIndex((item) => item.uid === part.uid);
+      const { uid: _uid, ...payload } = part;
+      insertPart(payload, index + 1);
+    },
+    [circuit, insertPart],
+  );
+
+  const clearCircuit = useCallback(() => {
     setCircuit([]);
-    setPredictResult(null);
-    setShowOutput(false);
-  };
-
-  const predict = async () => {
-    setLoading(true);
-    setError(null);
-    setShowOutput(true);
-    try {
-      const parts = circuit.map(({ part_id, part_type, sequence }) => ({
-        part_id,
-        part_type,
-        sequence,
-      }));
-      const { data } = await api.post("/circuits/predict", { parts });
-      setPredictResult(data);
-    } catch (err) {
-      const msg =
-        err.code === "ERR_NETWORK"
-          ? `Network error — cannot reach backend at ${API_BASE}.`
-          : err.response?.data?.detail?.error ||
-            err.message ||
-            "Prediction failed.";
-      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
-    } finally {
-      setLoading(false);
-    }
-  };
+    invalidate();
+    setSelectedUid(null);
+  }, [setCircuit, invalidate, setSelectedUid]);
 
   useEffect(() => {
-    if (!showOutput || loading) return;
-    outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [showOutput, loading, predictResult, error]);
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setSelectedUid(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [setSelectedUid]);
+
+  const selectPart = useCallback(
+    (uid) => {
+      setSelectedUid(uid);
+      onRequestInspector?.();
+    },
+    [setSelectedUid, onRequestInspector],
+  );
+
+  const liveMessage = loading
+    ? "Running the expression model."
+    : error
+      ? `Prediction failed. ${error}`
+      : predictResult?.prediction
+        ? `Prediction complete. Relative protein yield ${
+            predictResult.prediction.protein_yield?.relative_yield ?? "unavailable"
+          }.`
+        : "";
 
   return (
-    <div className="page circuit-builder-page">
-      <PageHero onOpenSettings={() => setSettingsOpen(true)} />
+    <div className="workspace">
+      <p className="sr-only" role="status" aria-live="polite">
+        {liveMessage}
+      </p>
+      <aside
+        className={`ws-col ws-rail ${railOpen ? "open" : ""}`}
+        aria-label="Parts library"
+      >
+        <PartsLibrary
+          onAddPart={addPart}
+          partCounts={partCounts}
+          refreshKey={partsRefreshKey}
+        />
+      </aside>
 
-      {backendOnline === false && (
-        <p className="error backend-offline">
-          Backend offline at {API_BASE}. Run uvicorn from synbio-studio\venv.
-        </p>
-      )}
+      <div className="ws-col ws-main">
+        {backendOnline === false && (
+          <div className="offline-bar">
+            <IconAlert width={13} height={13} />
+            Backend offline at {API_BASE} — library, prediction and structure
+            services are unavailable.
+          </div>
+        )}
 
-      <PartsLibrary
-        onAddPart={onAddPart}
-        partCounts={partCounts}
-        refreshKey={partsRefreshKey}
-      />
-
-      <section className="circuit-preview-row">
         <CircuitCanvas
           circuit={circuit}
-          onAddPart={onAddPart}
+          selectedUid={selectedUid}
+          onSelect={selectPart}
+          onInsertPart={insertPart}
           onRemovePart={removePart}
+          onMovePart={movePart}
           onClear={clearCircuit}
-          onPredict={predict}
-          loading={loading}
+          prediction={predictResult?.prediction}
         />
-        <PreviewPanel circuit={circuit} />
-      </section>
 
-      {showOutput && (
-        <>
-          <hr className="output-divider" ref={outputRef} />
-          <PredictionPanel
-            predictResult={predictResult}
-            error={error}
-            loading={loading}
-            onVisualize={() => onNavigate("visualize")}
-          />
-        </>
+        <AnalysisDock
+          circuit={circuit}
+          predictResult={predictResult}
+          loading={loading}
+          error={error}
+          selectedUid={selectedUid}
+          onSelect={selectPart}
+          onPredict={onPredict}
+          canPredict={circuit.length > 0 && hasType(circuit, "promoter")}
+          onOpenStructure={() => onNavigate("visualize")}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
+      </div>
+
+      <aside
+        className={`ws-col ws-inspector ${inspectorOpen ? "open" : ""}`}
+        aria-label="Inspector"
+      >
+        <Inspector
+          part={selectedPart}
+          index={selectedIndex}
+          circuit={circuit}
+          prediction={predictResult?.prediction}
+          onRemove={removePart}
+          onDuplicate={duplicatePart}
+          onFocusSequence={() => onTabChange("sequence")}
+          onOpenStructure={() => onNavigate("visualize")}
+          onClose={onCloseDrawers}
+        />
+      </aside>
+
+      {(railOpen || inspectorOpen) && (
+        <button
+          type="button"
+          className="drawer-scrim"
+          onClick={onCloseDrawers}
+          aria-label="Close panel"
+        />
       )}
-
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onPartsRefreshed={() => setPartsRefreshKey((k) => k + 1)}
-      />
     </div>
   );
 }

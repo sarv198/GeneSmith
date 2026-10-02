@@ -4,6 +4,7 @@ import { FILL, FILL_ALT, TXT, TXT_SEC, TXT_BLACK, STROKE, STROKE_BLACK, FLOW_MRN
 const STEPS = [
   {
     id: "circuit",
+    link: "Build tab · the four part classes you drag onto the canvas.",
     label: "The circuit",
     title: "Four parts. One instruction.",
     desc: "Every engineered gene has four components that work in sequence. Together they form a complete instruction for making a protein — from the signal to start, to the blueprint itself, to the signal to stop.",
@@ -11,6 +12,7 @@ const STEPS = [
   },
   {
     id: "sigma",
+    link: "Promoter strength (RPU) is a prediction of how readily this step happens.",
     label: "Sigma factor",
     title: "Sigma factor finds the promoter",
     desc: "RNA polymerase can't bind DNA alone. A sigma (σ) factor protein scans the helix and recognises two conserved sequences — the −35 and −10 boxes — marking the transcription start site.",
@@ -18,6 +20,7 @@ const STEPS = [
   },
   {
     id: "transcription",
+    link: "The Prediction tab reports promoter strength in RPU.",
     label: "Transcription",
     title: "RNA polymerase reads the gene",
     desc: "Once bound, RNA polymerase unwinds the double helix and reads the template strand 3'→5', synthesising mRNA 5'→3'. When it hits the terminator hairpin, it falls off and releases the mRNA.",
@@ -25,6 +28,7 @@ const STEPS = [
   },
   {
     id: "mrna",
+    link: "The Sequence tab shows these regions on your own construct.",
     label: "mRNA anatomy",
     title: "The mRNA carries the code",
     desc: "The mRNA has two critical features: a Shine-Dalgarno sequence (the RBS) that recruits the ribosome, and a coding sequence (CDS) that starts with AUG and ends with a stop codon.",
@@ -32,6 +36,7 @@ const STEPS = [
   },
   {
     id: "ribosome",
+    link: "RBS choice drives the predicted translation rate.",
     label: "Ribosome docks",
     title: "The ribosome docks at the RBS",
     desc: "The 30S ribosomal subunit base-pairs with the Shine-Dalgarno sequence on the mRNA. This positions the AUG start codon in the P-site, where the first tRNA carrying methionine is loaded.",
@@ -39,6 +44,7 @@ const STEPS = [
   },
   {
     id: "translation",
+    link: "Protein length in the Prediction tab comes from this codon walk.",
     label: "Translation",
     title: "Codons become amino acids",
     desc: "The ribosome moves along the mRNA codon by codon (3 bases = 1 amino acid). Each codon recruits a matching tRNA. Peptide bonds stitch the chain until a stop codon triggers release.",
@@ -46,6 +52,7 @@ const STEPS = [
   },
   {
     id: "protein",
+    link: "The Structure workspace renders the folded model of your protein.",
     label: "Protein folds",
     title: "The chain folds into a functional protein",
     desc: "The released amino acid chain folds into a 3D structure. Its shape determines whether it fluoresces, catalyses a reaction, or senses a molecule.",
@@ -96,7 +103,8 @@ function StepCircuit() {
               onMouseLeave={() => setHovered(null)}
               onClick={() => setSelected(i)}
               style={{
-                borderTop: isActive ? `2px solid ${part.border}` : "2px solid transparent",
+                borderTop: `2px solid ${part.border}`,
+                opacity: isActive || activeIndex === null ? 1 : 0.62,
               }}
             >
               <div className="theory-circuit-segment-label">{p.label}</div>

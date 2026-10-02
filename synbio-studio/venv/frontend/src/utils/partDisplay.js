@@ -11,8 +11,9 @@ export function stripDescription(html = "") {
 
 export function extractOrganism(description, source = "") {
   const text = stripDescription(description);
+  // Case-sensitive: a genus is capitalised, so "back translated" is not a host.
   const match = text.match(
-    /(?:in|from|for)\s+([A-Z][a-z]+(?:\.\s+[a-z]+)?(?:\s+and\s+[A-Z][a-z]+(?:\.\s+[a-z]+)?)?)/i,
+    /(?:in|from|for)\s+([A-Z][a-z]+(?:\.\s+[a-z]+)?(?:\s+and\s+[A-Z][a-z]+(?:\.\s+[a-z]+)?)?)/,
   );
   if (match) return match[1].replace(/\s+and\s+/g, ", ");
   if (source && source !== "igem") return source;

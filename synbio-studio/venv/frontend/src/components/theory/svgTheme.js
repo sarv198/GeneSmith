@@ -1,19 +1,26 @@
-export const FILL = "#ffffff";
-export const FILL_ALT = "#f9fafb";
-export const TXT = "#374151";
-export const TXT_SEC = "#9ca3af";
-export const TXT_BLACK = "#000000";
-export const STROKE = "#9ca3af";
-export const STROKE_BLACK = "#000000";
-export const FLOW_MRNA = "#ba7517";
-export const FLOW_RIBO = "#1d9e75";
-export const GLASS_FILL = "rgba(255, 255, 255, 0.38)";
-export const GLASS_STROKE = "rgba(0, 0, 0, 0.18)";
+/**
+ * Palette for the theory diagrams.
+ * These resolve through CSS custom properties, so the diagrams follow the
+ * workspace theme — a promoter is the same colour everywhere in GeneSmith,
+ * in both light and dark.
+ */
+
+export const FILL = "var(--surface-1)";
+export const FILL_ALT = "var(--surface-2)";
+export const TXT = "var(--text)";
+export const TXT_SEC = "var(--text-3)";
+export const TXT_BLACK = "var(--text)";
+export const STROKE = "var(--line-strong)";
+export const STROKE_BLACK = "var(--text-3)";
+export const FLOW_MRNA = "var(--mrna)";
+export const FLOW_RIBO = "var(--ribo)";
+export const GLASS_FILL = "var(--glass-fill)";
+export const GLASS_STROKE = "var(--line-strong)";
 
 export const LEGEND = {
-  promoter: { border: "#7F77DD", stroke: "rgba(127, 119, 221, 0.4)" },
-  rbs: { border: "#1D9E75", stroke: "rgba(29, 158, 117, 0.4)" },
-  gene: { border: "#378ADD", stroke: "rgba(55, 138, 221, 0.4)" },
-  term: { border: "#D85A30", stroke: "rgba(216, 90, 48, 0.4)" },
-  mrna: { border: "#ba7517", stroke: "rgba(186, 117, 23, 0.4)" },
+  promoter: { border: "var(--promoter)", stroke: "var(--promoter)" },
+  rbs: { border: "var(--rbs)", stroke: "var(--rbs)" },
+  gene: { border: "var(--gene)", stroke: "var(--gene)" },
+  term: { border: "var(--terminator)", stroke: "var(--terminator)" },
+  mrna: { border: "var(--mrna)", stroke: "var(--mrna)" },
 };

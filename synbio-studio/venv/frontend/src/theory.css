@@ -1,456 +1,520 @@
-.theory-page {
-  max-width: 920px;
-  margin: 0 auto;
-  padding-bottom: 3rem;
-  background: #fffbec;
-  min-height: calc(100vh - 3.75rem);
+/* ==========================================================================
+   Theory — the molecular walkthrough, in the workspace design language
+   ========================================================================== */
+
+.theory-layout {
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
 }
 
-.theory-hero {
-  padding: 2rem 0 1.5rem;
-}
-
-.theory-hero-eyebrow {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-label);
-  margin-bottom: 0.5rem;
-}
-
-.theory-hero h1 {
-  margin: 0 0 0.75rem;
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text-heading);
-  line-height: 1.3;
-}
-
-.theory-hero-lead {
-  margin: 0;
-  max-width: 36rem;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-body);
-}
-
-.theory-step-nav {
+/* ── Step rail ────────────────────────────────────────────────────────── */
+.theory-rail {
+  position: sticky;
+  top: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem 1.25rem;
-  margin-bottom: 2rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.theory-rail-label {
+  padding: 3px 6px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
 }
 
 .theory-step-link {
-  display: inline-flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
   align-items: center;
-  gap: 0.5rem;
+  gap: 9px;
+  padding: 7px 8px;
   background: none;
-  border: none;
-  padding: 0;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-muted);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.theory-step-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  font-size: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  color: var(--text-3);
+  font-size: 12.5px;
   font-weight: 500;
-  color: var(--text-muted);
-  background: var(--bg);
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.theory-step-num.active,
-.theory-step-link.active .theory-step-num {
-  background: var(--text-heading);
-  color: #fff;
-  border-color: var(--text-heading);
-}
-
-.theory-step-link.done .theory-step-num {
-  border-color: var(--text-label);
-  color: var(--text-label);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.13s var(--ease),
+    color 0.13s var(--ease);
 }
 
 .theory-step-link:hover {
-  color: var(--text-body);
+  background: var(--surface-1);
+  color: var(--text);
 }
 
 .theory-step-link.active {
-  color: var(--text-heading);
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--text);
 }
 
-.theory-step-link.done {
-  color: var(--text-label);
-}
-
-.theory-stage-header {
-  margin-bottom: 0.5rem;
-}
-
-.theory-stage-title {
-  margin: 0 0 0.75rem;
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text-heading);
-  line-height: 1.3;
-}
-
-.theory-stage-desc {
-  margin: 0;
-  max-width: 38rem;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-body);
-}
-
-.theory-viz {
-  padding: 2rem 0;
-  margin: 1.5rem 0 0;
-  border-top: 1px solid var(--border);
-}
-
-.theory-viz svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.theory-nav-footer {
+.theory-step-num {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-1);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  flex: none;
 }
 
-.theory-legend {
-  margin-top: 2.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.theory-legend-label {
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-label);
-  margin-bottom: 0.75rem;
-}
-
-.theory-legend-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.theory-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.35rem 0.75rem;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 400;
-  white-space: nowrap;
-  border: 1px solid;
-}
-
-.theory-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 400;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-body);
-}
-
-.theory-btn:disabled {
-  color: var(--text-muted);
-  cursor: default;
-}
-
-.theory-btn-primary {
+.theory-step-link.active .theory-step-num {
   background: var(--accent);
-  color: #fff;
   border-color: var(--accent);
-  font-weight: 500;
+  color: #12091f;
+  font-weight: 600;
 }
 
-.theory-btn-primary:hover:not(:disabled) {
-  filter: brightness(0.95);
+.theory-step-link.done .theory-step-num {
+  border-color: var(--accent-line);
+  color: var(--accent);
 }
 
-.theory-callout {
-  background: var(--bg);
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--border);
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-body);
-  border-radius: 8px;
+.theory-step-tag {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-4);
 }
 
-.theory-hint {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-label);
-}
-
-.theory-detail-panel {
-  padding: 1rem 1.25rem;
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-body);
-  border: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.theory-flow-row {
+/* Molecular layer the current step belongs to */
+.theory-layer-strip {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 12px;
-  color: var(--text-label);
-}
-
-.theory-flow-line {
-  flex: 1;
-  border-top: 1px dashed var(--border);
-}
-
-.theory-circuit-strip {
-  display: flex;
-  align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  gap: 1px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
   overflow: hidden;
 }
 
-.theory-circuit-segment {
+.theory-layer {
   flex: 1;
-  padding: 1.25rem 1rem;
+  padding: 6px 4px;
+  background: var(--surface-1);
   text-align: center;
-  cursor: pointer;
-  background: var(--bg);
-  border-right: 1px solid var(--border);
-  border-left: none;
-  border-bottom: none;
-  border-radius: 0;
-  font-family: inherit;
-  color: inherit;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
 }
 
-.theory-circuit-segment.active {
-  background: rgba(255, 255, 255, 0.6);
+.theory-layer.on {
+  background: var(--accent-dim);
+  color: var(--accent-bright);
 }
 
-.theory-circuit-segment:last-child {
-  border-right: none;
+/* ── Stage ────────────────────────────────────────────────────────────── */
+.theory-stage {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  animation: fade-in 0.2s var(--ease);
 }
 
-.theory-circuit-segment.gene {
-  flex: 2;
+.theory-stage-header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--line);
 }
 
-.theory-circuit-segment-label {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-  color: var(--text-heading);
+.theory-stage-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
-.theory-circuit-segment-sub {
-  font-size: 12px;
-  color: var(--text-label);
+.theory-stage-title {
+  margin-top: 5px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.theory-stage-desc {
+  margin-top: 6px;
+  max-width: 74ch;
+  font-size: 13px;
   line-height: 1.6;
+  color: var(--text-2);
+}
+
+.theory-viz {
+  padding: 16px;
+  background:
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% 26px,
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 26px 100%,
+    var(--surface-0);
 }
 
 .theory-viz-stack {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 14px;
+}
+
+.theory-viz svg {
+  display: block;
+  max-width: 100%;
 }
 
 .theory-viz-controls {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
+.theory-hint {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+/* Buttons inside the diagrams reuse the app button language */
+.theory-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.12s var(--ease),
+    border-color 0.12s var(--ease);
+}
+
+.theory-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+}
+
+.theory-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.theory-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #12091f;
+  font-weight: 600;
+}
+
+.theory-btn-primary:hover:not(:disabled) {
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+}
+
+/* ── Interactive circuit strip (step 1) ───────────────────────────────── */
+.theory-circuit-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.theory-circuit-segment {
+  padding: 11px 10px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 0 0 var(--r) var(--r);
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.13s var(--ease),
+    border-color 0.13s var(--ease),
+    transform 0.13s var(--ease);
+}
+
+.theory-circuit-segment:hover {
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.theory-circuit-segment.active {
+  background: var(--surface-2);
+}
+
+.theory-circuit-segment-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.theory-circuit-segment-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.theory-detail-panel {
+  padding: 10px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.theory-detail-panel strong {
+  color: var(--text);
+}
+
+.theory-detail-panel-tight {
+  min-height: 46px;
+}
+
+.theory-flow-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.theory-flow-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* ── Badges, callouts, chains ─────────────────────────────────────────── */
 .theory-badge-row {
   display: flex;
+  gap: 6px;
   flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .theory-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--pill-text);
-  background: var(--pill-bg);
+  height: 21px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-1);
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.theory-callout {
+  padding: 10px 12px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.theory-callout strong {
+  color: var(--accent-bright);
 }
 
 .theory-range-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 10px;
 }
 
-.theory-range-row input[type="range"] {
-  flex: 1;
-  accent-color: var(--text-body);
-}
-
-.theory-range-row-dark input[type="range"],
 .theory-range-dark {
-  accent-color: #000;
-}
-
-.theory-mrna-stack {
-  gap: 0.5rem;
-}
-
-.theory-detail-panel-tight {
-  margin-top: 0.25rem;
-  padding: 0.75rem 1rem;
-}
-
-.theory-translation-stack {
-  gap: 0.35rem;
-}
-
-.theory-translation-controls {
-  margin-bottom: 0;
-  gap: 0.5rem;
-}
-
-.theory-translation-stack svg {
-  margin-top: -0.15rem;
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .theory-chain-block {
-  margin-top: 0;
-}
-
-.theory-protein-stack {
-  gap: 0.25rem;
-  margin-top: -1rem;
+  padding: 11px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
 }
 
 .theory-chain-label {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-label);
-  margin-bottom: 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 8px;
 }
 
 .theory-chain {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
-  min-height: 2rem;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-height: 26px;
 }
 
 .theory-aa {
-  background: var(--pill-bg);
-  border-radius: 8px;
-  padding: 0.25rem 0.6rem;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-body);
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  animation: aa-in 0.2s var(--ease) both;
 }
 
-.theory-yield-bar-row {
+@keyframes aa-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Footer, legend, connector ────────────────────────────────────────── */
+.theory-connector {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-1);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.theory-connector .eyebrow {
+  flex: none;
+  color: var(--accent);
+  padding-top: 1px;
+}
+
+.theory-nav-footer {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 9px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--line);
 }
 
-.theory-yield-bar-label {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-body);
-  min-width: 7.5rem;
-}
-
-.theory-yield-bar-track {
+.theory-nav-footer .spacer {
   flex: 1;
-  height: 8px;
-  background: var(--pill-bg);
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
 }
 
-.theory-yield-bar-fill {
-  height: 100%;
-  background: var(--text-muted);
-  border-radius: 8px;
+.theory-progress {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-4);
 }
 
-.theory-yield-bar-note {
-  font-size: 12px;
-  color: var(--text-label);
-  min-width: 10rem;
-  text-align: right;
+.theory-legend {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
 }
 
-.theory-formula {
-  background: var(--pill-bg);
-  padding: 1rem 1.25rem;
-  font-size: 14px;
-  color: var(--text-body);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.theory-legend-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 9px;
+}
+
+.theory-legend-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.theory-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 11.5px;
+  background: var(--surface-1);
+}
+
+.theory-mrna-stack,
+.theory-translation-stack,
+.theory-protein-stack {
+  gap: 12px;
+}
+
+@media (max-width: 1000px) {
+  .theory-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .theory-rail {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .theory-rail-label,
+  .theory-layer-strip {
+    width: 100%;
+  }
+
+  .theory-step-link {
+    flex: 1 1 150px;
+  }
 }
 
 @media (max-width: 640px) {
-  .theory-nav-footer {
-    flex-wrap: wrap;
-  }
-
   .theory-circuit-strip {
-    flex-direction: column;
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .theory-circuit-segment {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+  .theory-stage-title {
+    font-size: 15px;
   }
 
-  .theory-circuit-segment:last-child {
-    border-bottom: none;
-  }
-
-  .theory-circuit-segment.gene {
-    flex: 1;
+  .theory-viz {
+    padding: 12px;
   }
 }

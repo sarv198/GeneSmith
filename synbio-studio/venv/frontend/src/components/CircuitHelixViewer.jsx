@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createViewer } from "3dmol";
 import { typeColor } from "../api/client.js";
+import { typeKey } from "../utils/circuit.js";
+import { IconReset } from "./Icons.jsx";
+import { stageBackground, useTheme } from "../theme.jsx";
+import { whenPaintable } from "../utils/paint.js";
 import {
   buildStructureFromCircuit,
   sanitizeDna,
@@ -94,10 +98,12 @@ function renderCircuitHelix(viewer, dnaStructure) {
   return true;
 }
 
-export default function CircuitHelixViewer({ circuit }) {
+export default function CircuitHelixViewer({ circuit, selectedUid }) {
+  const { theme } = useTheme();
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const [error, setError] = useState(null);
+  const [spinning, setSpinning] = useState(false);
 
   const structureKey = circuit
     .map((p) => `${p.part_id}:${sanitizeDna(p.sequence).length}`)
@@ -123,10 +129,12 @@ export default function CircuitHelixViewer({ circuit }) {
     }
     container.replaceChildren();
 
-    const raf = requestAnimationFrame(() => {
+    const cancelPaint = whenPaintable(() => {
       if (cancelled) return;
       try {
-        const viewer = createViewer(container, { backgroundColor: "#0f172a" });
+        const viewer = createViewer(container, {
+          backgroundColor: stageBackground(theme),
+        });
         viewerRef.current = viewer;
         const structure = buildStructureFromCircuit(circuit, typeColor);
         const ok = renderCircuitHelix(viewer, structure);
@@ -144,25 +152,110 @@ export default function CircuitHelixViewer({ circuit }) {
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf);
+      cancelPaint();
       if (viewerRef.current) {
         viewerRef.current.clear();
         viewerRef.current = null;
       }
     };
-  }, [structureKey]);
+  }, [structureKey, theme]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return undefined;
+    try {
+      viewer.spin(spinning ? "y" : false, spinning ? 1 : undefined);
+    } catch {
+      /* spin is presentation only */
+    }
+    return () => {
+      try {
+        viewer.spin(false);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [spinning, structureKey, theme]);
+
+  const totalBp = circuit.reduce(
+    (sum, part) => sum + sanitizeDna(part.sequence).length,
+    0,
+  );
 
   return (
-    <div className="visualize-panel visualize-panel-large circuit-helix-viewer">
-      <h3 className="visualize-panel-title">Circuit DNA Construct</h3>
-      <p className="visualize-panel-subtitle">
-        Full assembled helix from your circuit parts
-      </p>
-      {error && <p className="warn-text">{error}</p>}
-      <div
-        ref={containerRef}
-        className="visualize-canvas visualize-canvas-large"
-      />
+    <div className="viewer viewer-lg circuit-helix-viewer">
+      <div className="viewer-head">
+        <div className="viewer-titles">
+          <div className="viewer-title">Assembled DNA construct</div>
+          <div className="viewer-subtitle">
+            {circuit.length} parts · {totalBp} bp · schematic double helix
+          </div>
+        </div>
+        <div className="viewer-tools">
+          <span className="prov prov-computed">computed</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            aria-pressed={spinning}
+            onClick={() => setSpinning((value) => !value)}
+            data-tip="Rotate the model continuously"
+            data-tip-align="end"
+          >
+            {spinning ? "Stop" : "Spin"}
+          </button>
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => {
+              const viewer = viewerRef.current;
+              if (!viewer) return;
+              viewer.zoomTo();
+              viewer.zoom(1.55);
+              viewer.render();
+            }}
+            aria-label="Reset the view"
+            data-tip="Reset view"
+            data-tip-align="end"
+          >
+            <IconReset />
+          </button>
+        </div>
+      </div>
+
+      <div className="viewer-stage">
+        <div ref={containerRef} className="viewer-canvas" />
+        {error && (
+          <div className="viewer-overlay">
+            <p className="warn-text">{error}</p>
+          </div>
+        )}
+        {!circuit.length && (
+          <div className="viewer-overlay">
+            <div className="empty">
+              <p className="empty-title">No construct yet</p>
+              <p className="empty-body">
+                Build a circuit to see its parts assembled along one DNA
+                molecule.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="viewer-foot">
+        <div className="seq-legend" style={{ marginLeft: 0 }}>
+          {circuit.map((part) => (
+            <span
+              key={part.uid}
+              className={`seq-legend-item ${selectedUid === part.uid ? "on" : ""}`}
+              data-type={typeKey(part.part_type)}
+            >
+              <span className="sw" aria-hidden="true" />
+              {part.part_id}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

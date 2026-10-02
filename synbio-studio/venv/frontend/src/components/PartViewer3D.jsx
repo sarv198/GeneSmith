@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import * as NGL from "ngl";
 import { createViewer } from "3dmol";
 import { api } from "../api/client.js";
-import { badgeClass, displayType } from "../utils/partHelpers.js";
+import { partLabel, typeKey, typeLabel } from "../utils/circuit.js";
+import { stageBackground, useTheme } from "../theme.jsx";
+import { whenPaintable } from "../utils/paint.js";
 
 function safeId(partId) {
   return String(partId).replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-function renderRbsSequenceFallback(container, sequence) {
-  const viewer = createViewer(container, { backgroundColor: "#0f172a" });
+function renderRbsSequenceFallback(container, sequence, background) {
+  const viewer = createViewer(container, { backgroundColor: background });
   const seq = (sequence || "AGGAGG")
     .replace(/\s/g, "")
     .toUpperCase()
@@ -41,8 +43,8 @@ function renderRbsSequenceFallback(container, sequence) {
     position: { x: (seq.length * 1.1) / 2, y: 2.2, z: 0 },
     fontSize: 11,
     fontColor: "#4c9be8",
-    backgroundColor: "black",
-    backgroundOpacity: 0.65,
+    backgroundColor: background,
+    backgroundOpacity: 0.7,
   });
   viewer.zoomTo();
   viewer.render();
@@ -54,6 +56,7 @@ export default function PartViewer3D({
   variant = "default",
   compact = false,
 }) {
+  const { theme } = useTheme();
   const [structureData, setStructureData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -131,7 +134,7 @@ export default function PartViewer3D({
       const el = viewportRef.current;
       if (!el || cancelled) return;
 
-      stage = new NGL.Stage(el, { backgroundColor: "#0f172a" });
+      stage = new NGL.Stage(el, { backgroundColor: stageBackground(theme) });
       stage
         .loadFile(pdbUrl, { defaultRepresentation: false })
         .then((component) => {
@@ -183,30 +186,30 @@ export default function PartViewer3D({
         });
     };
 
-    const raf = requestAnimationFrame(mount);
+    const cancelPaint = whenPaintable(mount);
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf);
+      cancelPaint();
       stage?.dispose();
     };
-  }, [loading, showProtein, showPdb, pdbUrl, partType]);
+  }, [loading, showProtein, showPdb, pdbUrl, partType, theme]);
 
   useEffect(() => {
     if (!showRbsFallback) return undefined;
     let cleanup;
     let cancelled = false;
-    const raf = requestAnimationFrame(() => {
+    const cancelPaint = whenPaintable(() => {
       if (cancelled) return;
       const container = fallbackRef.current;
       if (!container) return;
-      cleanup = renderRbsSequenceFallback(container, sequence);
+      cleanup = renderRbsSequenceFallback(container, sequence, stageBackground(theme));
     });
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf);
+      cancelPaint();
       cleanup?.();
     };
-  }, [showRbsFallback, sequence]);
+  }, [showRbsFallback, sequence, theme]);
 
   useEffect(() => {
     if (!showDnaHelix && !showDnaLinear) return undefined;
@@ -215,7 +218,7 @@ export default function PartViewer3D({
     const container = document.getElementById(molId);
     if (!container) return undefined;
 
-    const viewer = createViewer(container, { backgroundColor: "#0f172a" });
+    const viewer = createViewer(container, { backgroundColor: stageBackground(theme) });
     const seq = (structureData?.sequence || part.sequence || "")
       .replace(/\./g, "")
       .toUpperCase()
@@ -260,69 +263,82 @@ export default function PartViewer3D({
     structureData,
     part.sequence,
     molId,
+    theme,
   ]);
-
-  const panelClass = compact
-    ? "visualize-panel visualize-panel-small part-viewer-3d"
-    : "viewer-panel part-viewer-3d";
-  const canvasClass = compact
-    ? "visualize-canvas visualize-canvas-small"
-    : "viewer-canvas";
-  const canvasStyle = compact
-    ? undefined
-    : { width: "100%", height: 280, borderRadius: 12 };
 
   const title =
     variant === "regulatory"
-      ? displayType(part.part_type)
-      : `${part.name || part.label || part.part_id} — 3D Structure`;
+      ? `${typeLabel(part.part_type)} reference`
+      : `${partLabel(part)} — structure`;
+
+  const canvasStyle = { width: "100%", height: "100%" };
 
   return (
-    <div className={panelClass}>
-      <h3 className="visualize-panel-title">{title}</h3>
-      {structureData?.structure_label && (
-        <p className="visualize-panel-subtitle">{structureData.structure_label}</p>
-      )}
+    <div
+      className={`viewer part-viewer ${compact ? "viewer-sm" : "viewer-md"}`}
+      data-type={typeKey(part.part_type)}
+    >
+      <div className="viewer-head">
+        <div className="viewer-titles">
+          <div className="viewer-title">{title}</div>
+          <div className="viewer-subtitle">
+            {structureData?.structure_label ||
+              `${part.part_id} · ${sequence.length} bp`}
+          </div>
+        </div>
+        <div className="viewer-tools">
+          <span className="type-tag">{typeLabel(part.part_type)}</span>
+        </div>
+      </div>
 
-      {loading && <p className="viewer-loading">Loading 3D structure…</p>}
-
-      {!loading && (showProtein || showPdb) && (
-        <div
-          ref={viewportRef}
-          id={viewportId}
-          className={canvasClass}
-          style={canvasStyle}
-        />
-      )}
-
-      {!loading && showRbsFallback && (
-        <div
-          ref={fallbackRef}
-          className={canvasClass}
-          style={canvasStyle}
-        />
-      )}
-
-      {!loading &&
-        (showDnaHelix || showDnaLinear) &&
-        !showProtein &&
-        !showPdb &&
-        !showRbsFallback && (
-          <div id={molId} className={canvasClass} style={canvasStyle} />
+      <div className="viewer-stage">
+        {!loading && (showProtein || showPdb) && (
+          <div
+            ref={viewportRef}
+            id={viewportId}
+            className="viewer-canvas"
+            style={canvasStyle}
+          />
         )}
 
-      {!loading && showPlaceholder && (
-        <div className="viewer-placeholder">
-          <span className={badgeClass(part.part_type)}>{displayType(part.part_type)}</span>
-          <p>3D structure unavailable for this part</p>
-        </div>
-      )}
+        {!loading && showRbsFallback && (
+          <div ref={fallbackRef} className="viewer-canvas" style={canvasStyle} />
+        )}
+
+        {!loading &&
+          (showDnaHelix || showDnaLinear) &&
+          !showProtein &&
+          !showPdb &&
+          !showRbsFallback && (
+            <div id={molId} className="viewer-canvas" style={canvasStyle} />
+          )}
+
+        {loading && (
+          <div className="viewer-overlay">
+            <span className="loading-row">
+              <span className="pulse-bar" aria-hidden="true" />
+              Preparing structure…
+            </span>
+          </div>
+        )}
+
+        {!loading && showPlaceholder && (
+          <div className="viewer-overlay">
+            <div className="empty">
+              <p className="empty-title">No reference structure</p>
+              <p className="empty-body">
+                No deposited structure is recorded for this part. Its sequence is
+                still used in the construct.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {!compact && (
-        <div className="viewer-meta">
-          <code className="part-id-mono">{part.part_id}</code>
-          <span className={badgeClass(part.part_type)}>{displayType(part.part_type)}</span>
-          <span className="seq-len">{sequence.length} bp</span>
+        <div className="viewer-foot">
+          <code className="mono">{part.part_id}</code>
+          <span>{sequence.length} bp</span>
         </div>
       )}
     </div>
