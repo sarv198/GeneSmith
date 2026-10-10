@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GeneSmith — design system
+   GeneSmith design system
    A dark, instrument-grade workspace for genetic circuit design.
    ========================================================================== */
 
@@ -8,7 +8,7 @@
   --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  /* Surfaces — graphite, layered from deepest to raised */
+  /* Surfaces: graphite, layered from deepest to raised */
   --bg: #0b0e13;
   --surface-0: #0e1219;
   --surface-1: #141a23;
@@ -27,13 +27,13 @@
   --text-3: #6f7d8e;
   --text-4: #56616f;
 
-  /* Brand accent — carried over from the original purple, tuned for dark */
+  /* Brand accent, carried over from the original purple, tuned for dark */
   --accent: #a78bfa;
   --accent-bright: #c4b5fd;
   --accent-dim: rgba(167, 139, 250, 0.16);
   --accent-line: rgba(167, 139, 250, 0.42);
 
-  /* Biological part identity — matches the 3D viewers and the backend map */
+  /* Biological part identity. Matches the 3D viewers and the backend map */
   --promoter: #e8735d;
   --rbs: #4c9be8;
   --gene: #5cb85c;
@@ -192,7 +192,7 @@ kbd,
   background: rgba(167, 139, 250, 0.3);
 }
 
-/* Focus — always visible, never color-only */
+/* Focus: always visible, never color-only */
 :focus-visible {
   outline: 2px solid var(--accent-bright);
   outline-offset: 2px;
@@ -222,7 +222,7 @@ kbd,
   background: transparent;
 }
 
-/* Part-type accent resolution — any element can carry data-type */
+/* Part-type accent resolution. Any element can carry data-type */
 [data-type="promoter"] {
   --part: var(--promoter);
 }
@@ -391,7 +391,7 @@ kbd,
   border-color: rgba(248, 113, 113, 0.3);
 }
 
-/* Type tag — the small square-ish label that identifies a biological part */
+/* Type tag: the small square-ish label that identifies a biological part */
 .type-tag {
   display: inline-flex;
   align-items: center;
@@ -409,7 +409,7 @@ kbd,
   white-space: nowrap;
 }
 
-/* Provenance labels — never let a model estimate read as a measurement */
+/* Provenance labels. Never let a model estimate read as a measurement */
 .prov {
   display: inline-flex;
   align-items: center;
@@ -438,7 +438,7 @@ kbd,
   color: var(--text-2);
 }
 
-/* Tooltip — attached to any element with data-tip */
+/* Tooltip, attached to any element with data-tip */
 [data-tip] {
   position: relative;
 }
@@ -534,7 +534,7 @@ kbd,
   border-color: var(--text-3);
 }
 
-/* Loading — a measured readout, not a spinner */
+/* Loading: a measured readout, not a spinner */
 .loading-row {
   display: flex;
   align-items: center;
@@ -593,7 +593,7 @@ kbd,
   }
 }
 
-/* "Run the model to see output" — a centred call to action, nothing else */
+/* "Run the model to see output": a centred call to action, nothing else */
 .dock-body-center {
   display: flex;
   align-items: center;
@@ -617,7 +617,7 @@ kbd,
   white-space: nowrap;
 }
 
-/* Empty states — they teach the next step */
+/* Empty states: they teach the next step */
 .empty {
   display: flex;
   flex-direction: column;
@@ -853,7 +853,7 @@ kbd,
 }
 
 /* ==========================================================================
-   Workspace — parts rail · canvas + analysis · inspector
+   Workspace: parts rail · canvas + analysis · inspector
    ========================================================================== */
 
 .workspace {
@@ -891,6 +891,20 @@ kbd,
 
 .drawer-close {
   display: none;
+}
+
+.page-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.insp-actions-top {
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .offline-bar {
@@ -1154,7 +1168,7 @@ kbd,
   padding: 7px 8px 10px;
 }
 
-/* ── Part card — a specimen record, not a marketing tile ──────────────── */
+/* ── Part card: a specimen record, not a marketing tile ──────────────── */
 .part-card {
   position: relative;
   display: grid;
@@ -1185,6 +1199,15 @@ kbd,
 
 .part-card:focus-within {
   border-color: var(--accent-line);
+}
+
+.part-card.previewing {
+  border-color: var(--accent-line);
+  background: var(--surface-2);
+}
+
+.part-card.previewing::before {
+  opacity: 1;
 }
 
 .part-card.dragging {
@@ -1275,31 +1298,43 @@ kbd,
   align-items: center;
   justify-content: center;
   gap: 3px;
-  padding: 0 6px;
+  padding: 0 7px;
   border-left: 1px solid var(--line-soft);
+  cursor: default;
 }
 
 .part-add-btn {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   background: var(--surface-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
-  color: var(--text-3);
+  color: var(--text-2);
+  cursor: pointer;
   transition:
     background 0.12s var(--ease),
     color 0.12s var(--ease),
-    border-color 0.12s var(--ease);
+    border-color 0.12s var(--ease),
+    transform 0.12s var(--ease);
 }
 
-.part-card:hover .part-add-btn,
-.part-card:focus-within .part-add-btn {
+.part-card:hover .part-add-btn {
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+
+.part-add-btn:hover {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
+}
+
+.part-add-btn:active {
+  transform: scale(0.92);
 }
 
 .part-add-count {
@@ -1336,7 +1371,7 @@ kbd,
 }
 
 /* ==========================================================================
-   Circuit canvas — the centerpiece
+   Circuit canvas: the centerpiece
    ========================================================================== */
 
 .canvas {
@@ -1394,7 +1429,7 @@ kbd,
   background: rgba(167, 139, 250, 0.03);
 }
 
-/* Assembly checklist — promoter · rbs · gene · terminator */
+/* Assembly checklist: promoter · rbs · gene · terminator */
 .assembly {
   display: flex;
   align-items: center;
@@ -1503,7 +1538,7 @@ kbd,
   pointer-events: none;
 }
 
-/* Insertion slot — the drop target between parts */
+/* Insertion slot: the drop target between parts */
 .slot {
   position: relative;
   flex: none;
@@ -1567,7 +1602,7 @@ kbd,
   cursor: copy;
 }
 
-/* ── Part node — a biological object, drawn to its own grammar ────────── */
+/* ── Part node: a biological object, drawn to its own grammar ────────── */
 .node {
   position: relative;
   flex: none;
@@ -2124,7 +2159,7 @@ kbd {
   overflow-wrap: anywhere;
 }
 
-/* Comparison bars — used for per-part contributions */
+/* Comparison bars, used for per-part contributions */
 .bars {
   display: flex;
   flex-direction: column;
@@ -2368,7 +2403,7 @@ kbd {
   opacity: 0.85;
 }
 
-/* Region map — the whole construct as one proportional strip */
+/* Region map: the whole construct as one proportional strip */
 .seq-map {
   display: flex;
   height: 16px;
@@ -2625,18 +2660,34 @@ kbd {
   margin-top: 2px;
 }
 
-/* Base composition bars */
-.fill-A {
-  background: var(--base-a);
+/* Base composition readout */
+.comp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin-top: 10px;
 }
-.fill-T {
-  background: var(--base-t);
+
+.comp-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
 }
-.fill-G {
-  background: var(--base-g);
+
+.comp-item .base {
+  font-weight: 600;
+  min-width: 9px;
 }
-.fill-C {
-  background: var(--base-c);
+
+.comp-item .eq {
+  color: var(--text-4);
+}
+
+.comp-item .pct {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }
 
 .seq-block {
@@ -2929,7 +2980,7 @@ kbd {
   align-items: center;
 }
 
-/* The pipeline ribbon — circuit ▸ DNA ▸ RNA ▸ protein ▸ structure */
+/* The pipeline ribbon: circuit ▸ DNA ▸ RNA ▸ protein ▸ structure */
 .pipeline {
   display: flex;
   align-items: stretch;
@@ -3176,7 +3227,7 @@ kbd {
 }
 
 /* ==========================================================================
-   Responsive — desktop first, then collapse panels into drawers
+   Responsive: desktop first, then collapse panels into drawers
    ========================================================================== */
 
 @media (max-width: 1440px) {

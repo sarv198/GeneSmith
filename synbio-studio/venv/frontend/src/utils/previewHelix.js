@@ -82,7 +82,7 @@ export function buildStructureFromCircuit(circuit, typeColorFn) {
   };
 }
 
-/** Fingerprint for tests — differs when circuit composition changes. */
+/** Fingerprint for tests. Differs when circuit composition changes. */
 export function helixFingerprint(dnaStructure) {
   const assembled = sanitizeDna(dnaStructure.assembled_sequence);
   let globalIndex = 0;

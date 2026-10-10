@@ -30,7 +30,7 @@ def main() -> None:
         df = pd.read_csv(CIRCUIT_CSV)
     except FileNotFoundError as exc:
         raise SystemExit(
-            "ERROR: Could not find circuit_training.csv — "
+            "ERROR: Could not find circuit_training.csv, "
             "run python -m backend.data.build_circuit_training first"
         ) from exc
 
@@ -44,7 +44,7 @@ def main() -> None:
     X = df[FEATURE_NAMES].astype(float).to_numpy()
     y = df["protein_yield"].astype(float).to_numpy()
     print(f"Feature matrix shape: {X.shape}")
-    print(f"Yield range: {y.min():.2f} – {y.max():.2f}")
+    print(f"Yield range: {y.min():.2f} to {y.max():.2f}")
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42

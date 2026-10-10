@@ -55,7 +55,7 @@ export default function AppHeader({
         type="button"
         className="hdr-brand"
         onClick={() => onNavigate("home")}
-        aria-label="GeneSmith — go to circuit builder"
+        aria-label="GeneSmith, go to circuit builder"
       >
         <img src={logoUrl} alt="GeneSmith" className="hdr-logo hdr-logo-full" />
         <img src={markUrl} alt="GeneSmith" className="hdr-logo hdr-logo-mark" />
@@ -209,7 +209,7 @@ export default function AppHeader({
           aria-label="Model and library settings"
           data-tip={
             backendOnline === false
-              ? "Backend offline — open settings"
+              ? "Backend offline. Open settings"
               : "Model status, library refresh, retraining"
           }
           data-tip-align="end"

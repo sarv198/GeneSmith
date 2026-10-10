@@ -26,6 +26,8 @@ export default function CircuitBuilderPage({
   onRequestInspector,
   activeTab,
   onTabChange,
+  previewPart,
+  onPreviewPart,
 }) {
 
   const partCounts = useMemo(() => {
@@ -53,8 +55,9 @@ export default function CircuitBuilderPage({
       });
       invalidate();
       setSelectedUid(uid);
+      onPreviewPart?.(null);
     },
-    [setCircuit, invalidate, setSelectedUid],
+    [setCircuit, invalidate, setSelectedUid, onPreviewPart],
   );
 
   const addPart = useCallback(
@@ -113,9 +116,10 @@ export default function CircuitBuilderPage({
   const selectPart = useCallback(
     (uid) => {
       setSelectedUid(uid);
+      onPreviewPart?.(null);
       onRequestInspector?.();
     },
-    [setSelectedUid, onRequestInspector],
+    [setSelectedUid, onPreviewPart, onRequestInspector],
   );
 
   const liveMessage = loading
@@ -139,6 +143,8 @@ export default function CircuitBuilderPage({
       >
         <PartsLibrary
           onAddPart={addPart}
+          onPreviewPart={onPreviewPart}
+          previewPartId={previewPart?.part_id || null}
           partCounts={partCounts}
           refreshKey={partsRefreshKey}
         />
@@ -148,7 +154,7 @@ export default function CircuitBuilderPage({
         {backendOnline === false && (
           <div className="offline-bar">
             <IconAlert width={13} height={13} />
-            Backend offline at {API_BASE} — library, prediction and structure
+            Backend offline at {API_BASE}. Library, prediction and structure
             services are unavailable.
           </div>
         )}
@@ -185,6 +191,8 @@ export default function CircuitBuilderPage({
       >
         <Inspector
           part={selectedPart}
+          previewPart={previewPart}
+          onAddPreview={addPart}
           index={selectedIndex}
           circuit={circuit}
           prediction={predictResult?.prediction}

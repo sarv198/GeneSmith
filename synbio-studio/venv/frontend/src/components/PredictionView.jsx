@@ -5,8 +5,8 @@ import { IconAlert, IconCaret } from "./Icons.jsx";
 
 const TIPS = {
   yield:
-    "Relative protein yield on a 0–1 scale: promoter strength × translation rate × coding-sequence factor.",
-  rpu: "Relative Promoter Units — transcription initiation rate relative to a reference promoter.",
+    "Relative protein yield on a 0 to 1 scale: promoter strength × translation rate × coding-sequence factor.",
+  rpu: "Relative Promoter Units: transcription initiation rate relative to a reference promoter.",
   translation:
     "Normalised translation initiation rate predicted from the RBS sequence.",
   length:
@@ -46,7 +46,7 @@ function Metric({
       </div>
 
       {value == null ? (
-        <div className="metric-value metric-none">—</div>
+        <div className="metric-value metric-none">n/a</div>
       ) : (
         <div className="metric-value">
           {value}
@@ -182,7 +182,7 @@ export default function PredictionView({
         <p className="empty-body">
           {circuit?.length
             ? "Run the model to estimate promoter strength, translation rate and relative protein yield for this construct."
-            : "Add enough circuit information — at minimum a promoter — to generate a prediction."}
+            : "Add enough circuit information, at minimum a promoter, to generate a prediction."}
         </p>
       </div>
     );
@@ -228,7 +228,7 @@ export default function PredictionView({
                   aria-hidden="true"
                   data-tip={TIPS.ci}
                 />
-                interval {ci[0]}–{ci[1]}
+                interval {ci[0]} to {ci[1]}
               </>
             ) : proteinYield == null ? (
               "Needs an RBS and a coding sequence"
@@ -278,18 +278,18 @@ export default function PredictionView({
         <div className="sub-label">Model context</div>
         <dl className="readout readout-wide">
           <dt>Prediction scope</dt>
-          <dd>{scope || "—"}</dd>
+          <dd>{scope || "n/a"}</dd>
           <dt>Expression model</dt>
           <dd>{prediction.model}</dd>
           <dt>Coding-sequence factor</dt>
-          <dd>{prediction.protein_yield?.cds_expressibility_factor ?? "—"}</dd>
+          <dd>{prediction.protein_yield?.cds_expressibility_factor ?? "n/a"}</dd>
           <dt>Terminator efficiency</dt>
-          <dd>{prediction.protein_yield?.terminator_efficiency ?? "—"}</dd>
+          <dd>{prediction.protein_yield?.terminator_efficiency ?? "n/a"}</dd>
           <dt>Calibration</dt>
           <dd>
             {prediction.protein_yield?.calibrated
               ? "calibrated"
-              : "uncalibrated — relative values only"}
+              : "uncalibrated, relative values only"}
           </dd>
         </dl>
       </div>

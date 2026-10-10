@@ -130,7 +130,7 @@ export default function ProteinView({
           ))}
         </div>
         <p className="hint">
-          Translated from the coding sequence — side-chain classes shape how the
+          Translated from the coding sequence. Side-chain classes shape how the
           chain folds.
         </p>
       </div>

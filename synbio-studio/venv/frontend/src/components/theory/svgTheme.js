@@ -1,7 +1,7 @@
 /**
  * Palette for the theory diagrams.
  * These resolve through CSS custom properties, so the diagrams follow the
- * workspace theme — a promoter is the same colour everywhere in GeneSmith,
+ * workspace theme. A promoter is the same colour everywhere in GeneSmith,
  * in both light and dark.
  */
 

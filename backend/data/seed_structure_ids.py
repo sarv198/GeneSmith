@@ -9,7 +9,7 @@ import pandas as pd
 
 PARTS_MASTER = Path("backend/data/parts_master.csv")
 
-# Canonical iGEM parts — keys use exact BBa_* format from parts_master.csv.
+# Canonical iGEM parts. Keys use exact BBa_* format from parts_master.csv.
 # BBa_C0012 / BBa_C0040 / BBa_C0051 are not in the library; equivalent CDS parts are mapped below.
 STRUCTURE_MAP: dict[str, dict[str, str | None]] = {
     "BBa_E0040": {"pdb_id": "1EMA", "uniprot_id": "P42212"},
@@ -159,7 +159,7 @@ def _print_verification(df: pd.DataFrame) -> None:
         seeded_count = int(subset["pdb_id"].map(_is_present).sum())
         unseeded_count = len(subset) - seeded_count
         if label in {"promoter", "rbs", "terminator"}:
-            print(f"   {label}: {seeded_count} seeded (expected — DNA only)")
+            print(f"   {label}: {seeded_count} seeded (expected, DNA only)")
         else:
             print(f"   {label}: {seeded_count} seeded, {unseeded_count} unseeded")
 

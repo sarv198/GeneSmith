@@ -174,7 +174,7 @@ export function predictedNodeMetrics(circuit, prediction) {
   return metrics;
 }
 
-/** FASTA export of the assembled construct — derived entirely from state. */
+/** FASTA export of the assembled construct, derived entirely from state. */
 export function circuitToFasta(circuit, name = "circuit") {
   const { sequence, segments } = assembleCircuit(circuit);
   const header = segments

@@ -67,6 +67,8 @@ function sortParts(parts, sort) {
 
 export default function PartsLibrary({
   onAddPart,
+  onPreviewPart,
+  previewPartId = null,
   partCounts = {},
   refreshKey = 0,
 }) {
@@ -176,7 +178,7 @@ export default function PartsLibrary({
       setRecommendedParts((data.recommended_parts || []).map(partToPaletteItem));
     } catch {
       setRecommendError(
-        `Could not fetch recommendations — backend at ${API_BASE} unreachable.`,
+        `Could not fetch recommendations. Backend at ${API_BASE} is unreachable.`,
       );
       setRecommendedParts([]);
     } finally {
@@ -291,7 +293,7 @@ export default function PartsLibrary({
 
       {offline && !showRecommendations && (
         <p className="lib-note">
-          Backend unreachable at {API_BASE} — showing a small offline part set.
+          Backend unreachable at {API_BASE}. Showing a small offline part set.
         </p>
       )}
 
@@ -319,6 +321,8 @@ export default function PartsLibrary({
                 key={part.part_id}
                 part={part}
                 onAddPart={onAddPart}
+                onPreviewPart={onPreviewPart}
+                previewing={previewPartId === part.part_id}
                 addCount={partCounts[part.part_id] || 0}
               />
             ))}
@@ -358,7 +362,7 @@ export default function PartsLibrary({
       {totalMatches > PAGE_SIZE && (
         <div className="pager">
           <span className="pager-label">
-            {rangeStart}–{rangeEnd} of {totalMatches.toLocaleString()}
+            {rangeStart}-{rangeEnd} of {totalMatches.toLocaleString()}
           </span>
           <div className="pager-btns">
             <button

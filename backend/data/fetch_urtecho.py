@@ -138,7 +138,7 @@ def _nearest_anderson_rpu(sequence: str, anderson: pd.DataFrame) -> float:
 
 def _build_anderson_augmented() -> pd.DataFrame:
     print(
-        "WARNING: GEO fetch failed — using Anderson augmentation fallback.\n"
+        "WARNING: GEO fetch failed, using Anderson augmentation fallback.\n"
         "         Training data will be E. coli only for synthetic promoters."
     )
     if not ANDERSON_PATH.exists():

@@ -88,7 +88,7 @@ def combine_promoters() -> pd.DataFrame:
             "be limited. Consider adding more labeled data sources."
         )
     print(
-        "RPU distribution — "
+        "RPU distribution: "
         f"min={labeled['rpu'].min():.4f}, max={labeled['rpu'].max():.4f}, "
         f"mean={labeled['rpu'].mean():.4f}, std={labeled['rpu'].std():.4f}"
     )

@@ -1,4 +1,4 @@
-"""GeneSmith API — expression prediction, parts library, and admin jobs."""
+"""GeneSmith API: expression prediction, parts library, and admin jobs."""
 
 from __future__ import annotations
 
@@ -103,22 +103,22 @@ DEFAULT_CIRCUIT = [
 ]
 
 WARN_RBS = (
-    "No RBS detected — translation rate defaulted to 0.5 (medium). "
+    "No RBS detected. Translation rate defaulted to 0.5 (medium). "
     "Add an RBS part for accurate expression prediction."
 )
 WARN_CDS = (
-    "No coding sequence detected — protein yield cannot be calculated. "
+    "No coding sequence detected. Protein yield cannot be calculated. "
     "Add a gene part to enable yield prediction."
 )
 WARN_TERM = (
-    "No terminator detected — assuming 90% termination efficiency. "
+    "No terminator detected. Assuming 90% termination efficiency. "
     "Add a terminator part for complete circuit validation."
 )
 
 
 def _load_parts_df() -> pd.DataFrame | None:
     if not PARTS_MASTER_PATH.exists():
-        print(f"WARNING: {PARTS_MASTER_PATH} not found — parts library unavailable")
+        print(f"WARNING: {PARTS_MASTER_PATH} not found, parts library unavailable")
         return None
     try:
         df = pd.read_csv(PARTS_MASTER_PATH)
@@ -1029,7 +1029,7 @@ def _compute_yield(body: YieldRequest) -> dict[str, Any]:
 
     method = "heuristic"
     warning: str | None = (
-        "Circuit GBM model not loaded — using heuristic yield formula"
+        "Circuit GBM model not loaded, using heuristic yield formula"
     )
     gene_length = body.gene_length if body.gene_length > 0 else 1
 

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import PreviewPanel from "./PreviewPanel.jsx";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
+
+const PreviewPanel = lazy(() => import("./PreviewPanel.jsx"));
 import PredictionView from "./PredictionView.jsx";
 import ProteinView from "./ProteinView.jsx";
 import SequenceView from "./SequenceView.jsx";
@@ -24,7 +25,7 @@ function Pipeline({ circuit, predictResult, onGo }) {
     {
       id: "sequence",
       name: "DNA",
-      value: length ? `${length} bp` : "—",
+      value: length ? `${length} bp` : "n/a",
       done: length > 0,
       go: "sequence",
     },
@@ -50,7 +51,7 @@ function Pipeline({ circuit, predictResult, onGo }) {
     {
       id: "structure",
       name: "Structure",
-      value: aa ? "available" : "—",
+      value: aa ? "available" : "n/a",
       done: Boolean(aa),
       go: "structure-page",
     },
@@ -127,7 +128,7 @@ function Overview({
               <>
                 <p className="hint">
                   {canPredict
-                    ? "The construct has a promoter — run the model to estimate expression."
+                    ? "The construct has a promoter, so you can run the model to estimate expression."
                     : "Add a promoter: the expression model needs one before it can run."}
                 </p>
                 {canPredict && (
@@ -324,7 +325,16 @@ export default function AnalysisDock({
           )}
 
           {active === "model" && (
-            <PreviewPanel circuit={circuit} selectedUid={selectedUid} />
+            <Suspense
+              fallback={
+                <div className="loading-row">
+                  <span className="pulse-bar" aria-hidden="true" />
+                  Loading molecular viewer
+                </div>
+              }
+            >
+              <PreviewPanel circuit={circuit} selectedUid={selectedUid} />
+            </Suspense>
           )}
         </div>
       )}

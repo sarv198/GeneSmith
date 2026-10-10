@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { api, API_BASE } from "./api/client.js";
 import AppHeader from "./components/AppHeader.jsx";
-import SettingsModal from "./components/SettingsModal.jsx";
 import CircuitBuilderPage from "./pages/CircuitBuilderPage.jsx";
-import TheoryPage from "./pages/TheoryPage.jsx";
-import VisualizePage from "./pages/VisualizePage.jsx";
+
+// Loaded on demand: the settings modal, and the two pages that pull in the
+// molecular viewers. Keeps the first paint to the builder alone.
+const SettingsModal = lazy(() => import("./components/SettingsModal.jsx"));
+const TheoryPage = lazy(() => import("./pages/TheoryPage.jsx"));
+const VisualizePage = lazy(() => import("./pages/VisualizePage.jsx"));
 import { extractOrganism } from "./utils/partDisplay.js";
 import {
   assembleCircuit,
@@ -90,6 +93,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  // A library part being read in the inspector without being placed.
+  const [previewPart, setPreviewPart] = useState(null);
   // Lives here so leaving the builder and coming back lands on the same view.
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -115,7 +120,7 @@ export default function App() {
     } catch (err) {
       const msg =
         err.code === "ERR_NETWORK"
-          ? `Network error — cannot reach backend at ${API_BASE}.`
+          ? `Network error: cannot reach backend at ${API_BASE}.`
           : err.response?.data?.detail?.error ||
             err.message ||
             "Prediction failed.";
@@ -169,6 +174,16 @@ export default function App() {
 
   const Page = PAGES[activePage] || CircuitBuilderPage;
 
+  const previewLibraryPart = useCallback((part) => {
+    setPreviewPart(part);
+    if (part) {
+      setSelectedUid(null);
+      // On narrow layouts the inspector is a drawer, so bring it in to show.
+      setInspectorOpen(true);
+      setRailOpen(false);
+    }
+  }, []);
+
   const closeDrawers = useCallback(() => {
     setRailOpen(false);
     setInspectorOpen(false);
@@ -201,6 +216,8 @@ export default function App() {
     onRequestInspector: () => setInspectorOpen(true),
     activeTab,
     onTabChange: setActiveTab,
+    previewPart,
+    onPreviewPart: previewLibraryPart,
   };
 
   return (
@@ -236,14 +253,29 @@ export default function App() {
       />
 
       <div className="app-content">
-        <Page {...pageProps} />
+        <Suspense
+          fallback={
+            <div className="page-loading">
+              <span className="loading-row">
+                <span className="pulse-bar" aria-hidden="true" />
+                Loading workspace
+              </span>
+            </div>
+          }
+        >
+          <Page {...pageProps} />
+        </Suspense>
       </div>
 
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onPartsRefreshed={() => setPartsRefreshKey((key) => key + 1)}
-      />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            onPartsRefreshed={() => setPartsRefreshKey((key) => key + 1)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

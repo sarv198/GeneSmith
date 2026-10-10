@@ -405,7 +405,7 @@ export default function ProteinViewer3D({
             <span>{disclaimer} Shape is indicative, not an experimental structure.</span>
           ) : isAlphafold ? (
             <span>
-              Source: AlphaFold DB{uniprotId ? ` · ${uniprotId}` : ""} — a
+              Source: AlphaFold DB{uniprotId ? ` · ${uniprotId}` : ""}, a
               computed model, not an experimental structure.
             </span>
           ) : (

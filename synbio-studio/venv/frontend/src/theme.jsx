@@ -9,7 +9,7 @@ function readStoredTheme() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "light" || stored === "dark") return stored;
   } catch {
-    /* private mode or blocked storage — fall through to the default */
+    /* private mode or blocked storage, so fall through to the default */
   }
   return "dark";
 }

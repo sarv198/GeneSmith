@@ -7,7 +7,7 @@ const STEPS = [
     link: "Build tab · the four part classes you drag onto the canvas.",
     label: "The circuit",
     title: "Four parts. One instruction.",
-    desc: "Every engineered gene has four components that work in sequence. Together they form a complete instruction for making a protein — from the signal to start, to the blueprint itself, to the signal to stop.",
+    desc: "Every engineered gene has four components that work in sequence. Together they form a complete instruction for making a protein, from the signal to start, to the blueprint itself, to the signal to stop.",
     tag: "Overview",
   },
   {
@@ -15,7 +15,7 @@ const STEPS = [
     link: "Promoter strength (RPU) is a prediction of how readily this step happens.",
     label: "Sigma factor",
     title: "Sigma factor finds the promoter",
-    desc: "RNA polymerase can't bind DNA alone. A sigma (σ) factor protein scans the helix and recognises two conserved sequences — the −35 and −10 boxes — marking the transcription start site.",
+    desc: "RNA polymerase can't bind DNA alone. A sigma (σ) factor protein scans the helix and recognises two conserved sequences, the −35 and −10 boxes, marking the transcription start site.",
     tag: "Transcription · Step 1",
   },
   {
@@ -299,7 +299,7 @@ function StepTranscription() {
       </svg>
 
       <div className="theory-callout">
-        <strong>Promoter strength (RPU)</strong> controls how often RNA polymerase binds — higher RPU means more mRNA produced per second.
+        <strong>Promoter strength (RPU)</strong> controls how often RNA polymerase binds. Higher RPU means more mRNA produced per second.
       </div>
     </div>
   );
@@ -310,9 +310,9 @@ function StepMRNA() {
   const regions = [
     { id: "utr5", label: "5' UTR", x: 30, w: 60, type: "mrna", desc: "Untranslated region. Contains regulatory sequences before the coding region." },
     { id: "sd", label: "SD seq (RBS)", x: 90, w: 80, type: "rbs", desc: "Shine-Dalgarno: AGGAGG. Complementary to 16S rRNA. Recruits the 30S ribosome subunit." },
-    { id: "aug", label: "AUG", x: 170, w: 44, type: "gene", desc: "Start codon — codes for Methionine. First amino acid of every protein." },
+    { id: "aug", label: "AUG", x: 170, w: 44, type: "gene", desc: "Start codon, codes for Methionine. First amino acid of every protein." },
     { id: "cds", label: "Coding sequence (CDS)", x: 214, w: 220, type: "gene", desc: "One codon (3 bases) = one amino acid. This is what your gene part encodes." },
-    { id: "stop", label: "UAA stop", x: 434, w: 60, type: "term", desc: "Stop codon (UAA, UAG, or UGA). Triggers release factor — ribosome falls off." },
+    { id: "stop", label: "UAA stop", x: 434, w: 60, type: "term", desc: "Stop codon (UAA, UAG, or UGA). Triggers release factor, so the ribosome falls off." },
     { id: "utr3", label: "3' UTR", x: 494, w: 56, type: "mrna", desc: "Untranslated region. May contain regulatory elements affecting mRNA stability." },
   ];
 
@@ -357,7 +357,7 @@ function StepRibosome() {
           {assembled ? "70S ribosome assembled" : "Assemble ribosome"}
         </button>
         <span className="theory-hint">
-          {assembled ? "Ready for translation. AUG is in the P-site." : "Click to dock the 50S subunit onto the 30S–mRNA complex."}
+          {assembled ? "Ready for translation. AUG is in the P-site." : "Click to dock the 50S subunit onto the 30S/mRNA complex."}
         </span>
       </div>
 
@@ -414,7 +414,7 @@ function StepTranslation() {
           {step === maxStep ? "Protein complete" : "Add next amino acid"}
         </button>
         <span className="theory-hint">
-          {step === 0 ? "Ribosome at AUG start codon." : step === maxStep ? "Stop codon reached — ribosome releases the chain." : `Codon ${step + 1}: ${CODONS[step]} codes for ${AMINO_ACIDS[step - 1]}`}
+          {step === 0 ? "Ribosome at AUG start codon." : step === maxStep ? "Stop codon reached, so the ribosome releases the chain." : `Codon ${step + 1}: ${CODONS[step]} codes for ${AMINO_ACIDS[step - 1]}`}
         </span>
       </div>
 
@@ -450,7 +450,7 @@ function StepTranslation() {
           {chain.map((aa, i) => (
             <span key={i} style={{ display: "flex", alignItems: "center" }}>
               <span className="theory-aa">{aa}</span>
-              {i < chain.length - 1 && <span style={{ color: TXT_SEC, margin: "0 1px" }}>—</span>}
+              {i < chain.length - 1 && <span style={{ color: TXT_SEC, margin: "0 1px" }}>-</span>}
             </span>
           ))}
           {step === maxStep && <span className="theory-hint" style={{ marginLeft: 8 }}>released</span>}
@@ -480,7 +480,7 @@ function StepProtein() {
         <path d="M280 76 L340 76 L340 86 L348 81 L356 86 L356 76 L416 76 L416 86 L424 81 L432 86 L432 76 L490 76" fill="none" stroke={STROKE_BLACK} strokeWidth="1" />
         <text x="385" y="96" textAnchor="middle" fontSize="9" fill={TXT_BLACK}>β-sheet</text>
 
-        <text x="20" y="122" fontSize="11" fill={TXT_BLACK}>3. Tertiary fold — functional 3D shape</text>
+        <text x="20" y="122" fontSize="11" fill={TXT_BLACK}>3. Tertiary fold, the functional 3D shape</text>
         <ellipse cx="80" cy="148" rx="44" ry="14" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
         <ellipse cx="96" cy="142" rx="34" ry="12" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />
         <ellipse cx="80" cy="138" rx="28" ry="10" fill={FILL} stroke={STROKE_BLACK} strokeWidth="1" />

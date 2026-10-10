@@ -118,7 +118,7 @@ def train_promoter() -> None:
         df = pd.read_csv(PROMOTER_CSV)
     except FileNotFoundError as exc:
         raise SystemExit(
-            "ERROR: Could not find promoter_training_final.csv — "
+            "ERROR: Could not find promoter_training_final.csv, "
             "run python -m backend.data.combine_datasets first"
         ) from exc
 
@@ -130,7 +130,7 @@ def train_promoter() -> None:
     X, feature_names = _build_promoter_matrix(df)
     y = df["rpu"].astype(float).to_numpy()
     print(f"Feature matrix shape: {X.shape}")
-    print(f"RPU range: {y.min():.3f} – {y.max():.3f}")
+    print(f"RPU range: {y.min():.3f} to {y.max():.3f}")
 
     model, scaler, _ = _train_gbm(X, y, "Promoter (RPU)")
     _save_model(PROMOTER_MODEL_PATH, model, scaler, feature_names)
@@ -150,7 +150,7 @@ def train_rbs() -> None:
         df = pd.read_csv(RBS_CSV)
     except FileNotFoundError as exc:
         raise SystemExit(
-            "ERROR: Could not find salis_rbs_clean.csv — "
+            "ERROR: Could not find salis_rbs_clean.csv, "
             "run python -m backend.data.fetch_salis first"
         ) from exc
 
@@ -163,7 +163,7 @@ def train_rbs() -> None:
     X, feature_names = _build_rbs_matrix(df)
     y = df["translation_rate_norm"].to_numpy()
     print(f"Feature matrix shape: {X.shape}")
-    print(f"Translation rate range (normalized): {y.min():.3f} – {y.max():.3f}")
+    print(f"Translation rate range (normalized): {y.min():.3f} to {y.max():.3f}")
 
     model, scaler, _ = _train_gbm(X, y, "RBS (translation rate)")
     _save_model(RBS_MODEL_PATH, model, scaler, feature_names)

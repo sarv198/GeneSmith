@@ -170,7 +170,7 @@ def _mutate_boxes(seed: str, sigma: str, idx: int) -> str:
 
 def _build_synthetic() -> pd.DataFrame:
     print(
-        "WARNING: RegulonDB fetch failed — using sigma-factor synthetic fallback.\n"
+        "WARNING: RegulonDB fetch failed, using sigma-factor synthetic fallback.\n"
         "         All sequences derived from Anderson consensus mutations."
     )
     if ANDERSON_PATH.exists():

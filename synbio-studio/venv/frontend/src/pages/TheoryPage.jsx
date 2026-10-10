@@ -32,7 +32,7 @@ export default function TheoryPage({ onNavigate }) {
           <div>
             <h1>From genetic design to protein expression</h1>
             <p>
-              What each part of a circuit actually does inside the cell — the
+              What each part of a circuit actually does inside the cell: the
               promoter that starts transcription, the RBS that recruits the
               ribosome, the gene that carries the code, and the terminator that
               stops it. Every step here corresponds to something GeneSmith
@@ -146,10 +146,10 @@ export default function TheoryPage({ onNavigate }) {
         <aside className="theory-legend">
           <div className="theory-legend-label">Circuit part legend</div>
           <div className="theory-legend-chips">
-            <PartChip type="promoter" label="Promoter — transcription signal" />
-            <PartChip type="rbs" label="RBS — ribosome binding" />
-            <PartChip type="gene" label="Gene (CDS) — protein blueprint" />
-            <PartChip type="term" label="Terminator — transcription end" />
+            <PartChip type="promoter" label="Promoter, transcription signal" />
+            <PartChip type="rbs" label="RBS, ribosome binding" />
+            <PartChip type="gene" label="Gene (CDS), protein blueprint" />
+            <PartChip type="term" label="Terminator, transcription end" />
           </div>
         </aside>
       </div>

@@ -121,7 +121,7 @@ export default function VisualizePage({
         <div className="section-label-row">
           <div className="sub-label">Regulatory parts</div>
           <p className="hint">
-            Reference structures for the part classes in this construct — these
+            Reference structures for the part classes in this construct. These
             are deposited models of the machinery each part recruits, not of the
             part's own DNA.
           </p>
@@ -156,7 +156,7 @@ export default function VisualizePage({
                 data-type={type}
               >
                 <span className="idx">{typeLabel(type)}</span>
-                <span className="name">{part ? part.part_id : "—"}</span>
+                <span className="name">{part ? part.part_id : "n/a"}</span>
                 <span className="val">
                   {part ? `${(part.sequence || "").length} bp` : "not placed"}
                 </span>

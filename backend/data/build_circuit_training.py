@@ -38,7 +38,7 @@ def main() -> None:
     for path in (PROMOTER_CSV, RBS_CSV, PARTS_CSV):
         if not path.exists():
             raise SystemExit(
-                f"ERROR: Missing {path} — run combine_datasets and fetch_salis first"
+                f"ERROR: Missing {path}, run combine_datasets and fetch_salis first"
             )
 
     promoters = pd.read_csv(PROMOTER_CSV).dropna(subset=["rpu"])
@@ -89,7 +89,7 @@ def main() -> None:
     print(f"Built {len(df)} circuit training rows -> {OUTPUT_CSV}")
     print(
         "Yield range: "
-        f"{df['protein_yield'].min():.2f} – {df['protein_yield'].max():.2f} molecules/cell/hour"
+        f"{df['protein_yield'].min():.2f} to {df['protein_yield'].max():.2f} molecules/cell/hour"
     )
 
 

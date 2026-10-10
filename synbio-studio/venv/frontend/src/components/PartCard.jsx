@@ -7,13 +7,19 @@ import { sanitizeDna } from "../utils/previewHelix.js";
 import { IconPlus } from "./Icons.jsx";
 import { PartGlyphMini } from "./PartGlyph.jsx";
 
-/** Reported RPU values live in the iGEM/Anderson descriptions — surface, don't invent. */
+/** Reported RPU values live in the iGEM/Anderson descriptions. Surface, don't invent. */
 function reportedRpu(description) {
   const match = stripDescription(description).match(/RPU\s*[:=]?\s*([0-9]*\.?[0-9]+)/i);
   return match ? match[1] : null;
 }
 
-export default function PartCard({ part, onAddPart, addCount = 0 }) {
+export default function PartCard({
+  part,
+  onAddPart,
+  onPreviewPart,
+  addCount = 0,
+  previewing = false,
+}) {
   const palettePart = part.label ? part : partToPaletteItem(part);
   const color = palettePart.color || typeColor(palettePart.part_type);
   const dragPayload = {
@@ -43,14 +49,17 @@ export default function PartCard({ part, onAddPart, addCount = 0 }) {
   return (
     <div
       ref={drag}
-      className={`part-card ${isDragging ? "dragging" : ""}`}
+      className={`part-card ${isDragging ? "dragging" : ""} ${
+        previewing ? "previewing" : ""
+      }`}
       data-type={key}
     >
       <button
         type="button"
         className="part-card-main"
-        onClick={() => onAddPart?.(dragPayload)}
-        aria-label={`Add ${palettePart.part_id} (${typeLabel(palettePart.part_type)}) to the circuit`}
+        aria-pressed={previewing}
+        onClick={() => onPreviewPart?.(dragPayload)}
+        aria-label={`Inspect ${palettePart.part_id} (${typeLabel(palettePart.part_type)})`}
       >
         <span className="part-card-top">
           <PartGlyphMini partType={key} className="glyph part-card-glyph" />
@@ -72,12 +81,23 @@ export default function PartCard({ part, onAddPart, addCount = 0 }) {
         </span>
       </button>
 
-      <span className="part-card-side" aria-hidden="true">
-        {addCount > 0 && <span className="part-add-count">×{addCount}</span>}
-        <span className="part-add-btn">
+      <div className="part-card-side">
+        {addCount > 0 && (
+          <span className="part-add-count" aria-label={`In circuit ${addCount} times`}>
+            &times;{addCount}
+          </span>
+        )}
+        <button
+          type="button"
+          className="part-add-btn"
+          onClick={() => onAddPart?.(dragPayload)}
+          aria-label={`Add ${palettePart.part_id} to the circuit`}
+          data-tip="Add to circuit"
+          data-tip-align="end"
+        >
           <IconPlus width={13} height={13} />
-        </span>
-      </span>
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import {
   assembleCircuit,
   baseCounts,
@@ -13,14 +13,17 @@ import {
 import { sanitizeDna } from "../utils/previewHelix.js";
 import { extractOrganism, stripDescription } from "../utils/partDisplay.js";
 import { dnaComplement } from "../utils/aminoAcidColors.js";
-import PartViewer3D from "./PartViewer3D.jsx";
 import {
   IconCaret,
   IconClose,
   IconCopy,
+  IconPlus,
   IconSearch,
   IconTrash,
 } from "./Icons.jsx";
+
+// The 3D viewer pulls in NGL and 3Dmol, so it stays out of the initial bundle.
+const PartViewer3D = lazy(() => import("./PartViewer3D.jsx"));
 
 function Section({ id, title, tail, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -63,23 +66,19 @@ function DnaStrands({ sequence }) {
   );
 }
 
+/** Base composition, colour-matched to the sequence above it. */
 function Composition({ sequence }) {
   const seq = sanitizeDna(sequence);
   if (!seq.length) return null;
   const counts = baseCounts(seq);
   return (
-    <div className="bars" style={{ marginTop: 9 }}>
+    <div className="comp-grid">
       {["A", "T", "G", "C"].map((base) => (
-        <div key={base} className="bar-row">
-          <span className={`label mono base-${base}`}>{base}</span>
-          <span className="bar-track">
-            <span
-              className={`bar-fill fill-${base}`}
-              style={{ width: `${(counts[base] / seq.length) * 100}%` }}
-            />
-          </span>
-          <span className="value">{formatPercent(counts[base] / seq.length)}</span>
-        </div>
+        <span className="comp-item" key={base}>
+          <span className={`base base-${base}`}>{base}</span>
+          <span className="eq" aria-hidden="true">=</span>
+          <span className="pct">{formatPercent(counts[base] / seq.length)}</span>
+        </span>
       ))}
     </div>
   );
@@ -95,8 +94,8 @@ function ConstructSummary({ circuit, prediction }) {
       <div className="empty">
         <p className="empty-title">Nothing selected</p>
         <p className="empty-body">
-          Place a part on the canvas, then select it to inspect its identity,
-          sequence and predicted behaviour.
+          Pick a part in the library to read its details, or place one on the
+          canvas and select it.
         </p>
       </div>
     );
@@ -109,7 +108,7 @@ function ConstructSummary({ circuit, prediction }) {
           <dt>Total length</dt>
           <dd>{length} bp</dd>
           <dt>GC content</dt>
-          <dd>{gc != null ? formatPercent(gc, 1) : "—"}</dd>
+          <dd>{gc != null ? formatPercent(gc, 1) : "n/a"}</dd>
           <dt>Status</dt>
           <dd>{status.label}</dd>
           <dt>Model run</dt>
@@ -118,187 +117,9 @@ function ConstructSummary({ circuit, prediction }) {
       </Section>
       <div className="empty">
         <p className="empty-body">
-          Select a part on the canvas to inspect it.
+          Select a part on the canvas, or one in the library, to inspect it.
         </p>
       </div>
-    </>
-  );
-}
-
-export default function Inspector({
-  part,
-  index,
-  circuit,
-  prediction,
-  onRemove,
-  onDuplicate,
-  onFocusSequence,
-  onOpenStructure,
-  onClose,
-}) {
-  const [structureOpen, setStructureOpen] = useState(false);
-
-  useEffect(() => {
-    setStructureOpen(false);
-  }, [part?.uid]);
-
-  const key = part ? typeKey(part.part_type) : "other";
-
-  return (
-    <>
-      <div className="panel-head">
-        <h2 className="panel-title">Inspector</h2>
-        <div className="panel-head-actions">
-          <button
-            type="button"
-            className="btn-icon drawer-close"
-            onClick={onClose}
-            aria-label="Close inspector"
-          >
-            <IconClose />
-          </button>
-        </div>
-      </div>
-
-      {!part ? (
-        <div className="panel-body">
-          <ConstructSummary circuit={circuit} prediction={prediction} />
-        </div>
-      ) : (
-        <>
-          <div className="insp-head" data-type={key}>
-            <div className="insp-head-top">
-              <span className="type-tag" data-type={key}>
-                {typeLabel(part.part_type)}
-              </span>
-              <span className="mono" style={{ fontSize: 10, color: "var(--text-4)" }}>
-                position {index + 1}
-              </span>
-            </div>
-            <div className="insp-name">{partLabel(part)}</div>
-            <code className="insp-id">{part.part_id}</code>
-          </div>
-
-          <div className="panel-body">
-            <Section id="identity" title="Identity">
-              <dl className="readout">
-                <dt>Class</dt>
-                <dd>{typeLabel(part.part_type)}</dd>
-                <dt>Part ID</dt>
-                <dd>{part.part_id}</dd>
-                <dt>Host</dt>
-                <dd>{extractOrganism(part.description, part.source)}</dd>
-                <dt>Position</dt>
-                <dd>
-                  {index + 1} of {circuit.length}
-                </dd>
-              </dl>
-              {part.description && (
-                <p className="hint" style={{ marginTop: 8, lineHeight: 1.5 }}>
-                  {stripDescription(part.description)}
-                </p>
-              )}
-            </Section>
-
-            <Section
-              id="sequence"
-              title="Sequence"
-              tail={`${sanitizeDna(part.sequence).length} bp`}
-            >
-              <dl className="readout">
-                <dt>Length</dt>
-                <dd>{sanitizeDna(part.sequence).length} bp</dd>
-                <dt>GC content</dt>
-                <dd>
-                  {gcContent(part.sequence) != null
-                    ? formatPercent(gcContent(part.sequence), 1)
-                    : "—"}
-                </dd>
-              </dl>
-              <div className="stack-sm" style={{ marginTop: 9 }}>
-                <DnaStrands sequence={part.sequence} />
-                <div className="insp-inline-actions">
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() =>
-                      navigator.clipboard?.writeText(sanitizeDna(part.sequence))
-                    }
-                    data-tip="Copy this part's DNA sequence"
-                    data-tip-align="start"
-                  >
-                    <IconCopy width={12} height={12} />
-                    Copy
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={onFocusSequence}
-                    data-tip="Highlight this region in the construct sequence"
-                  >
-                    <IconSearch width={12} height={12} />
-                    Show in construct
-                  </button>
-                </div>
-              </div>
-              <Composition sequence={part.sequence} />
-            </Section>
-
-            <Section id="performance" title="Model output">
-              <PartPerformance part={part} circuit={circuit} prediction={prediction} />
-            </Section>
-
-            <Section id="structure" title="Structure" defaultOpen={false}>
-              {structureOpen ? (
-                <PartViewer3D part={part} variant="regulatory" compact />
-              ) : (
-                <div className="stack-sm">
-                  <p className="hint">
-                    Loads the reference structure recorded for this part class.
-                  </p>
-                  <div className="insp-inline-actions">
-                    <button
-                      type="button"
-                      className="btn btn-sm"
-                      onClick={() => setStructureOpen(true)}
-                    >
-                      Load 3D structure
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-ghost"
-                      onClick={onOpenStructure}
-                    >
-                      Open workspace
-                    </button>
-                  </div>
-                </div>
-              )}
-            </Section>
-
-            <div className="insp-actions">
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => onDuplicate(part)}
-                data-tip="Insert a copy directly after this part"
-                data-tip-align="start"
-              >
-                <IconCopy width={12} height={12} />
-                Duplicate
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => onRemove(part.uid)}
-              >
-                <IconTrash width={12} height={12} />
-                Remove
-              </button>
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 }
@@ -349,9 +170,231 @@ function PartPerformance({ part, circuit, prediction }) {
         </>
       )}
       <p className="hint">
-        Model estimate from {prediction.model} — not an experimental
-        measurement.
+        Model estimate from {prediction.model}, not an experimental measurement.
       </p>
     </div>
+  );
+}
+
+export default function Inspector({
+  part,
+  previewPart,
+  index,
+  circuit,
+  prediction,
+  onRemove,
+  onDuplicate,
+  onAddPreview,
+  onFocusSequence,
+  onOpenStructure,
+  onClose,
+}) {
+  const [structureOpen, setStructureOpen] = useState(false);
+
+  const subject = part || previewPart;
+  const isPreview = !part && Boolean(previewPart);
+  const subjectId = part?.uid || previewPart?.part_id || null;
+
+  useEffect(() => {
+    setStructureOpen(false);
+  }, [subjectId]);
+
+  const key = subject ? typeKey(subject.part_type) : "other";
+
+  return (
+    <>
+      <div className="panel-head">
+        <h2 className="panel-title">Inspector</h2>
+        <div className="panel-head-actions">
+          <button
+            type="button"
+            className="btn-icon drawer-close"
+            onClick={onClose}
+            aria-label="Close inspector"
+          >
+            <IconClose />
+          </button>
+        </div>
+      </div>
+
+      {!subject ? (
+        <div className="panel-body">
+          <ConstructSummary circuit={circuit} prediction={prediction} />
+        </div>
+      ) : (
+        <>
+          <div className="insp-head" data-type={key}>
+            <div className="insp-head-top">
+              <span className="type-tag" data-type={key}>
+                {typeLabel(subject.part_type)}
+              </span>
+              <span className="mono" style={{ fontSize: 10, color: "var(--text-4)" }}>
+                {isPreview ? "library preview" : `position ${index + 1}`}
+              </span>
+            </div>
+            <div className="insp-name">{partLabel(subject)}</div>
+            <code className="insp-id">{subject.part_id}</code>
+          </div>
+
+          <div className="panel-body">
+            {isPreview && (
+              <div className="insp-actions insp-actions-top">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={() => onAddPreview?.(subject)}
+                  data-tip="Append this part to the construct"
+                  data-tip-align="start"
+                >
+                  <IconPlus width={12} height={12} />
+                  Add to circuit
+                </button>
+                <span className="hint">Not placed yet</span>
+              </div>
+            )}
+
+            <Section id="identity" title="Identity">
+              <dl className="readout">
+                <dt>Class</dt>
+                <dd>{typeLabel(subject.part_type)}</dd>
+                <dt>Part ID</dt>
+                <dd>{subject.part_id}</dd>
+                <dt>Host</dt>
+                <dd>{extractOrganism(subject.description, subject.source)}</dd>
+                {!isPreview && (
+                  <>
+                    <dt>Position</dt>
+                    <dd>
+                      {index + 1} of {circuit.length}
+                    </dd>
+                  </>
+                )}
+              </dl>
+              {subject.description && (
+                <p className="hint" style={{ marginTop: 8, lineHeight: 1.5 }}>
+                  {stripDescription(subject.description)}
+                </p>
+              )}
+            </Section>
+
+            <Section
+              id="sequence"
+              title="Sequence"
+              tail={`${sanitizeDna(subject.sequence).length} bp`}
+            >
+              <dl className="readout">
+                <dt>Length</dt>
+                <dd>{sanitizeDna(subject.sequence).length} bp</dd>
+                <dt>GC content</dt>
+                <dd>
+                  {gcContent(subject.sequence) != null
+                    ? formatPercent(gcContent(subject.sequence), 1)
+                    : "n/a"}
+                </dd>
+              </dl>
+              <div className="stack-sm" style={{ marginTop: 9 }}>
+                <DnaStrands sequence={subject.sequence} />
+                <div className="insp-inline-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() =>
+                      navigator.clipboard?.writeText(sanitizeDna(subject.sequence))
+                    }
+                    data-tip="Copy this part's DNA sequence"
+                    data-tip-align="start"
+                  >
+                    <IconCopy width={12} height={12} />
+                    Copy
+                  </button>
+                  {!isPreview && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={onFocusSequence}
+                      data-tip="Highlight this region in the construct sequence"
+                    >
+                      <IconSearch width={12} height={12} />
+                      Show in construct
+                    </button>
+                  )}
+                </div>
+              </div>
+              <Composition sequence={subject.sequence} />
+            </Section>
+
+            {!isPreview && (
+              <Section id="performance" title="Model output">
+                <PartPerformance
+                  part={subject}
+                  circuit={circuit}
+                  prediction={prediction}
+                />
+              </Section>
+            )}
+
+            <Section id="structure" title="Structure" defaultOpen={false}>
+              {structureOpen ? (
+                <Suspense
+                  fallback={
+                    <div className="loading-row">
+                      <span className="pulse-bar" aria-hidden="true" />
+                      Loading molecular viewer
+                    </div>
+                  }
+                >
+                  <PartViewer3D part={subject} variant="regulatory" compact />
+                </Suspense>
+              ) : (
+                <div className="stack-sm">
+                  <p className="hint">
+                    Loads the reference structure recorded for this part class.
+                  </p>
+                  <div className="insp-inline-actions">
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => setStructureOpen(true)}
+                    >
+                      Load 3D structure
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost"
+                      onClick={onOpenStructure}
+                    >
+                      Open workspace
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Section>
+
+            {!isPreview && (
+              <div className="insp-actions">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => onDuplicate(subject)}
+                  data-tip="Insert a copy directly after this part"
+                  data-tip-align="start"
+                >
+                  <IconCopy width={12} height={12} />
+                  Duplicate
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => onRemove(subject.uid)}
+                >
+                  <IconTrash width={12} height={12} />
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </>
   );
 }

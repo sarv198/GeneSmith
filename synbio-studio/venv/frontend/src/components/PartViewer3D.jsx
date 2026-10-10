@@ -269,7 +269,7 @@ export default function PartViewer3D({
   const title =
     variant === "regulatory"
       ? `${typeLabel(part.part_type)} reference`
-      : `${partLabel(part)} — structure`;
+      : `${partLabel(part)} structure`;
 
   const canvasStyle = { width: "100%", height: "100%" };
 

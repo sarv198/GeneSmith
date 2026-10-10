@@ -125,7 +125,7 @@ export default function SequenceView({
             } to ${segment.end}`}
             data-tip={`${segment.part_id} · ${segment.length} bp · ${
               segment.start + 1
-            }–${segment.end}`}
+            }-${segment.end}`}
             data-tip-pos="below"
           />
         ))}

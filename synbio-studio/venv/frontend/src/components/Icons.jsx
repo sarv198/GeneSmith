@@ -1,4 +1,4 @@
-/** Minimal 16px stroke icon set — one visual weight across the app. */
+/** Minimal 16px stroke icon set at one visual weight across the app. */
 
 const base = {
   width: 15,

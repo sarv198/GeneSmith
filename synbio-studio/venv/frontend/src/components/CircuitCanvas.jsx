@@ -275,8 +275,8 @@ export default function CircuitCanvas({
           <div className="canvas-empty">
             <h3>Start building your circuit</h3>
             <p>
-              Drag a promoter from the library onto the canvas — or press its
-              card — then add an RBS, a gene and a terminator to complete the
+              Drag a promoter from the library onto the canvas, or press its
+              card, then add an RBS, a gene and a terminator to complete the
               transcription unit.
             </p>
             <div className="empty-schema" aria-hidden="true">

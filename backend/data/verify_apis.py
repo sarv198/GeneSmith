@@ -70,7 +70,7 @@ def main() -> None:
         print("AlphaFold API: OK")
         working.append("AlphaFold")
     else:
-        print(f"AlphaFold API: FAILED — {error}")
+        print(f"AlphaFold API: FAILED: {error}")
         failed.append("AlphaFold")
 
     ok, error = verify_uniprot()
@@ -78,7 +78,7 @@ def main() -> None:
         print("UniProt API: OK")
         working.append("UniProt")
     else:
-        print(f"UniProt API: FAILED — {error}")
+        print(f"UniProt API: FAILED: {error}")
         failed.append("UniProt")
 
     ok, error = verify_rcsb_pdb()
@@ -86,7 +86,7 @@ def main() -> None:
         print("RCSB PDB API: OK")
         working.append("RCSB PDB")
     else:
-        print(f"RCSB PDB API: FAILED — {error}")
+        print(f"RCSB PDB API: FAILED: {error}")
         failed.append("RCSB PDB")
 
     print(f"APIs ready for visualization: {working}")
